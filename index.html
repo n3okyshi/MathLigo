@@ -18,6 +18,13 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script> <!-- Usar google login -->
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script> <!-- Usar google login -->
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Usar google login -->
+
     <script>
         tailwind.config = {
             theme: {
@@ -140,14 +147,33 @@
     </main>
 
     <script>
+
+        // ---------------------------------------------------------
+        // 1. CONFIGURAÇÃO DO FIREBASE (COLE A SUA AQUI!)
+        // ---------------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "AIzaSyBYNxFdJ3M8Uw1oewupUXKXxppSRd2HiRY",
+            authDomain: "mathligo.firebaseapp.com",
+            projectId: "mathligo",
+            storageBucket: "mathligo.firebasestorage.app",
+            messagingSenderId: "852191827758",
+            appId: "1:852191827758:web:5f1365bb919b81eb808cbf"
+        };
+
+        // Inicializa Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore(); // Banco de Dados na Nuvem
+        const provider = new firebase.auth.GoogleAuthProvider();
+
         // --- TEMAS POR NÍVEL ---
         const LEVEL_THEMES = {
-            // Fundamental
+            //Ensino Fundamental
             "6º Ano": { main: 'bg-[#58cc02]', text: 'text-[#58cc02]', border: 'border-[#58cc02]', borderDark: 'border-[#46a302]', light: 'bg-green-50', ring: 'ring-green-100', gradient: 'from-green-400 to-green-600' },
             "7º Ano": { main: 'bg-[#1cb0f6]', text: 'text-[#1cb0f6]', border: 'border-[#1cb0f6]', borderDark: 'border-[#1899d6]', light: 'bg-blue-50', ring: 'ring-blue-100', gradient: 'from-blue-400 to-blue-600' },
             "8º Ano": { main: 'bg-[#ce82ff]', text: 'text-[#ce82ff]', border: 'border-[#ce82ff]', borderDark: 'border-[#a568cc]', light: 'bg-purple-50', ring: 'ring-purple-100', gradient: 'from-purple-400 to-purple-600' },
             "9º Ano": { main: 'bg-[#ff4b4b]', text: 'text-[#ff4b4b]', border: 'border-[#ff4b4b]', borderDark: 'border-[#ea2b2b]', light: 'bg-red-50', ring: 'ring-red-100', gradient: 'from-red-400 to-red-600' },
-            // Ensino Médio 
+            // Ensino Médio
             "1º Ano do Ensino Médio": { main: 'bg-[#FF9600]', text: 'text-[#FF9600]', border: 'border-[#FF9600]', borderDark: 'border-[#CC7A00]', light: 'bg-orange-50', ring: 'ring-orange-100', gradient: 'from-orange-400 to-orange-600' },
             "2º Ano do Ensino Médio": { main: 'bg-[#FFC800]', text: 'text-[#E5B400]', border: 'border-[#FFC800]', borderDark: 'border-[#E5B400]', light: 'bg-yellow-50', ring: 'ring-yellow-100', gradient: 'from-yellow-400 to-yellow-600' },
             "3º Ano do Ensino Médio": { main: 'bg-[#FF2E93]', text: 'text-[#FF2E93]', border: 'border-[#FF2E93]', borderDark: 'border-[#D11873]', light: 'bg-pink-50', ring: 'ring-pink-100', gradient: 'from-pink-400 to-pink-600' }
@@ -4737,111 +4763,326 @@
                 { q: "Em um triângulo retângulo, $a^2 = b^2 + ...$", opts: ["$c^2$", "$2bc$", "$c$", "$bc$"], a: 0 }
             ]
         };
+
+        //// CONFIGURAÇÃO DO FIREBASE (login google) (Cole a SUA aqui)
+        // const firebaseConfig = {
+        //     apiKey: "SUA_API_KEY_AQUI",
+        //     authDomain: "seu-projeto.firebaseapp.com",
+        //     projectId: "seu-projeto",
+        //     storageBucket: "seu-projeto.appspot.com",
+        //     messagingSenderId: "...",
+        //     appId: "..."
+        // };
+        //
+        // Inicializa
+        // firebase.initializeApp(firebaseConfig);
+        // const auth = firebase.auth();
+        // const provider = new firebase.auth.GoogleAuthProvider();
+
+
+
         // --- APP ENGINE ---
         const app = {
             history: [],
-            currentView: 'home',
+            // currentView: 'home',
+            currentView: 'loading',
             currentData: null,
-            completedLessons: JSON.parse(localStorage.getItem('mathlingo_progress') || '[]'),
 
-            init() {
-                this.render('home');
+            // Estado do Usuário (Sincronizado com a Nuvem)
+            user: {
+                uid: null,
+                name: null,
+                photo: null,
+                xp: 0,
+                completedLessons: []
             },
 
+            // 1. MÓDULO DE AUTENTICAÇÃO (CORREÇÃO: Adicionado de volta)
+            auth: {
+                dbName: 'mathlingo_users_db',
+                currentUser: null,
+
+                getDB() {
+                    const db = localStorage.getItem(this.dbName);
+                    return db ? JSON.parse(db) : { users: [] };
+                },
+
+                saveDB(data) {
+                    localStorage.setItem(this.dbName, JSON.stringify(data));
+                },
+
+                login(username, password) {
+                    const db = this.getDB();
+                    const user = db.users.find(u => u.username === username && u.password === password);
+                    if (user) {
+                        this.currentUser = user;
+                        localStorage.setItem('mathlingo_session', JSON.stringify(user));
+                        return { success: true };
+                    }
+                    return { success: false, msg: 'Usuário ou senha incorretos.' };
+                },
+
+                register(username, password) {
+                    if (!username || !password) return { success: false, msg: 'Preencha tudo!' };
+                    const db = this.getDB();
+                    if (db.users.find(u => u.username === username)) return { success: false, msg: 'Usuário já existe!' };
+
+                    const newUser = { username, password, xp: 0, completedLessons: [] };
+                    db.users.push(newUser);
+                    this.saveDB(db);
+                    return { success: true };
+                },
+
+                logout() {
+                    this.currentUser = null;
+                    localStorage.removeItem('mathlingo_session');
+                    app.render('login');
+                },
+
+                checkSession() {
+                    const session = localStorage.getItem('mathlingo_session');
+                    if (session) {
+                        this.currentUser = JSON.parse(session);
+                        return true;
+                    }
+                    return false;
+                },
+
+                updateProgress(xp, lesson) {
+                    if (!this.currentUser) return;
+                    const db = this.getDB();
+                    const idx = db.users.findIndex(u => u.username === this.currentUser.username);
+                    if (idx !== -1) {
+                        db.users[idx].xp += xp;
+                        if (lesson && !db.users[idx].completedLessons.includes(lesson)) {
+                            db.users[idx].completedLessons.push(lesson);
+                        }
+                        this.saveDB(db);
+                        this.currentUser = db.users[idx];
+                        localStorage.setItem('mathlingo_session', JSON.stringify(this.currentUser));
+                    }
+                }
+            },
+
+            // 2. INICIALIZAÇÃO
+            //init() {
+            //    if (this.auth.checkSession()) {
+            //        this.render('home');
+            //    } else {
+            //        this.render('login');
+            //    }
+            //},
+            init() {
+                this.render('loading');
+
+                // O Firebase avisa quando o usuário entra/sai ou se já estava logado
+                auth.onAuthStateChanged(async (firebaseUser) => {
+                    if (firebaseUser) {
+                        // Usuário Logado! Vamos pegar os dados dele no Banco
+                        await this.loadUserData(firebaseUser);
+                        this.render('home');
+                    } else {
+                        // Ninguém logado
+                        this.user = null;
+                        this.render('login');
+                    }
+                });
+            },
+
+            // --- LÓGICA DE BANCO DE DADOS (Firestore) ---
+            async loadUserData(firebaseUser) {
+                const userRef = db.collection('users').doc(firebaseUser.uid);
+                const doc = await userRef.get();
+
+                if (doc.exists) {
+                    // Usuário antigo: carrega progresso
+                    const data = doc.data();
+                    this.user = {
+                        uid: firebaseUser.uid,
+                        name: firebaseUser.displayName,
+                        photo: firebaseUser.photoURL,
+                        xp: data.xp || 0,
+                        completedLessons: data.completedLessons || []
+                    };
+                } else {
+                    // Novo usuário: cria documento no banco
+                    this.user = {
+                        uid: firebaseUser.uid,
+                        name: firebaseUser.displayName,
+                        photo: firebaseUser.photoURL,
+                        xp: 0,
+                        completedLessons: []
+                    };
+                    await userRef.set({ xp: 0, completedLessons: [] });
+                }
+            },
+
+            async saveProgress(xpAmount, lessonName) {
+                if (!this.user) return;
+
+                // Atualiza localmente para ser rápido
+                this.user.xp += xpAmount;
+                if (lessonName && !this.user.completedLessons.includes(lessonName)) {
+                    this.user.completedLessons.push(lessonName);
+                }
+
+                // Salva na Nuvem (Firestore)
+                const userRef = db.collection('users').doc(this.user.uid);
+                await userRef.update({
+                    xp: this.user.xp,
+                    completedLessons: this.user.completedLessons
+                });
+
+                // Atualiza a UI do Header se estiver visível
+                this.updateHeader();
+            },
+
+            // --- AÇÕES DE AUTENTICAÇÃO ---
+            loginGoogle() {
+                auth.signInWithPopup(provider).catch(err => alert("Erro no login: " + err.message));
+            },
+
+            logout() {
+                auth.signOut(); // O onAuthStateChanged vai jogar para a tela de login automaticamente
+            },
+
+            // --- NAVEGAÇÃO ---
             navigate(view, data = null) {
-                if (this.currentView) this.history.push({ view: this.currentView, data: this.currentData });
+                if (this.currentView && this.currentView !== 'loading') {
+                    this.history.push({ view: this.currentView, data: this.currentData });
+                }
                 this.currentView = view;
                 this.currentData = data;
                 this.render(view, data);
             },
 
             goBack() {
-                if (this.history.length === 0) return this.render('home');
+                if (this.history.length === 0) return;
                 const prev = this.history.pop();
                 this.currentView = prev.view;
                 this.currentData = prev.data;
                 this.render(prev.view, prev.data);
-                window.scrollTo(0, 0);
             },
 
-            completeLesson(lessonName) {
-                if (!this.completedLessons.includes(lessonName)) {
-                    this.completedLessons.push(lessonName);
-                    localStorage.setItem('mathlingo_progress', JSON.stringify(this.completedLessons));
-                }
-            },
-
-            // --- RENDERIZADORES DE TELA ---
-
+            // --- RENDERIZADORES ---
             render(view, data) {
                 const container = document.getElementById('main-container');
                 const btnBack = document.getElementById('btn-back');
+                const header = document.querySelector('header');
 
-                btnBack.classList.toggle('hidden', view === 'home');
-                container.innerHTML = '';
                 window.scrollTo(0, 0);
 
-                if (view === 'home') this.renderHome(container);
+                // Controle de Elementos Globais
+                if (view === 'login' || view === 'loading') {
+                    header.classList.add('hidden');
+                    btnBack.classList.add('hidden');
+                } else {
+                    header.classList.remove('hidden');
+                    this.updateHeader();
+                    btnBack.classList.toggle('hidden', view === 'home');
+                }
+
+                if (view === 'loading') {
+                    container.innerHTML = `<div class="flex h-[80vh] items-center justify-center text-brand-green animate-pulse"><i class="fas fa-circle-notch fa-spin text-4xl"></i></div>`;
+                    return;
+                }
+
+                // Roteador
+                if (view === 'login') this.renderLogin(container);
+                else if (view === 'home') this.renderHome(container);
                 else if (view === 'levels') this.renderLevels(container);
                 else if (view === 'units') this.renderUnits(container, data);
                 else if (view === 'path') this.renderPath(container, data);
                 else if (view === 'lesson') this.renderLesson(container, data);
             },
 
-            renderHome(container) {
+            updateHeader() {
+                const xpEl = document.querySelector('.fa-gem')?.nextElementSibling;
+                const fireEl = document.querySelector('.fa-fire')?.nextElementSibling;
+                if (this.user && xpEl) xpEl.innerText = this.user.xp;
+                if (this.user && fireEl) fireEl.innerText = this.user.completedLessons.length;
+            },
+
+            // --- TELAS ---
+            renderLogin(container) {
                 container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center pt-10 animate-fade-in">
-                        <div class="flex flex-col items-center mb-12">
-                            <div class="w-36 h-36 rounded-full bg-brand-green border-4 border-white shadow-xl mb-6 flex items-center justify-center relative">
-                                <i class="fas fa-graduation-cap text-white text-6xl"></i>
-                                <div class="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-sm">
-                                    <div class="w-6 h-6 bg-brand-yellow rounded-full border-2 border-white"></div>
-                                </div>
+                    <div class="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in px-4">
+                        <div class="mb-12 text-center">
+                            <div class="w-24 h-24 bg-brand-green rounded-2xl mx-auto flex items-center justify-center text-5xl text-white shadow-lg mb-4 relative overflow-hidden">
+                                <i class="fas fa-shapes"></i>
                             </div>
-                            <h2 class="text-3xl font-extrabold text-gray-700">Olá, Estudante!</h2>
-                            <p class="text-gray-400 font-bold text-lg mt-2">Pronto para aprender?</p>
+                            <h1 class="text-4xl font-black text-brand-green mb-2">MathLingo</h1>
+                            <p class="text-gray-400 font-bold">Sua jornada matemática começa aqui.</p>
                         </div>
 
-                        <div class="w-full max-w-md space-y-6">
-                            <div onclick="app.navigate('levels', 'teoria')" class="group cursor-pointer bg-white border-2 border-gray-200 rounded-3xl p-6 flex items-center gap-6 hover:border-brand-purple hover:bg-purple-50 transition-all shadow-card active:translate-y-1 active:shadow-none">
-                                <div class="w-20 h-20 rounded-2xl bg-brand-purple flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform text-white text-4xl">
-                                    <i class="fas fa-book-open"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-extrabold text-gray-700">Trilha de Teoria</h3>
-                                    <p class="text-gray-400 font-bold">Aulas passo a passo</p>
-                                </div>
-                            </div>
+                        <div class="bg-white p-8 rounded-[2rem] shadow-card border-2 border-gray-100 w-full max-w-md text-center">
+                            <h2 class="text-xl font-bold text-gray-700 mb-6">Crie seu perfil em segundos</h2>
+                            
+                            <button onclick="app.loginGoogle()" class="w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-3 group active:scale-95">
+                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6 group-hover:scale-110 transition-transform">
+                                <span>Continuar com Google</span>
+                            </button>
 
-                            <div onclick="alert('Em breve!')" class="group cursor-pointer bg-white border-2 border-gray-200 rounded-3xl p-6 flex items-center gap-6 hover:border-brand-blue hover:bg-blue-50 transition-all shadow-card active:translate-y-1 active:shadow-none opacity-60">
-                                <div class="w-20 h-20 rounded-2xl bg-brand-blue flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform text-white text-4xl">
-                                    <i class="fas fa-dumbbell"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-extrabold text-gray-700">Arena de Prática</h3>
-                                    <p class="text-gray-400 font-bold">Desafios e Quiz (Em breve)</p>
-                                </div>
-                            </div>
+                            <p class="text-xs text-gray-400 mt-6 font-bold">
+                                Seus dados de progresso serão salvos na nuvem automaticamente.
+                            </p>
                         </div>
                     </div>
                 `;
             },
 
-            renderLevels(container) {
-                const allLevels = Object.keys(CURRICULO);
-                
-                // Separa Fundamental de Médio
-                const fundamental = allLevels.filter(l => !l.includes('Médio'));
-                const medio = allLevels.filter(l => l.includes('Médio'));
+            renderHome(container) {
+                const u = this.user;
+                const avatar = u.photo ? `<img src="${u.photo}" class="w-full h-full object-cover">` : `<span class="text-6xl font-black text-white">${u.name[0]}</span>`;
 
-                // Helper para gerar botão
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center pt-10 animate-fade-in w-full">
+                        <div class="flex flex-col items-center mb-12">
+                            <div class="w-36 h-36 rounded-full bg-brand-green border-4 border-white shadow-xl mb-6 flex items-center justify-center relative overflow-hidden">
+                                ${avatar}
+                            </div>
+                            <h2 class="text-3xl font-extrabold text-gray-700 text-center">Olá, ${u.name.split(' ')[0]}!</h2>
+                            <p class="text-gray-400 font-bold text-lg mt-2">Nível Iniciante • ${u.xp} XP</p>
+                        </div>
+
+                        <div class="w-full max-w-md space-y-6">
+                            <div onclick="app.navigate('levels')" class="group cursor-pointer bg-white border-2 border-gray-200 rounded-3xl p-6 flex items-center gap-6 hover:border-brand-purple hover:bg-purple-50 transition-all shadow-card active:translate-y-1 active:shadow-none">
+                                <div class="w-20 h-20 rounded-2xl bg-brand-purple flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform text-white text-4xl shrink-0">
+                                    <i class="fas fa-book-open"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-extrabold text-gray-700 group-hover:text-brand-purple transition-colors">Trilha de Teoria</h3>
+                                    <p class="text-gray-400 font-bold text-sm">Começar a Estudar</p>
+                                </div>
+                            </div>
+                            <div onclick="alert('Em breve!')" class="group cursor-pointer bg-white border-2 border-gray-200 rounded-3xl p-6 flex items-center gap-6 opacity-60">
+                                <div class="w-20 h-20 rounded-2xl bg-brand-blue flex items-center justify-center shadow-inner text-white text-4xl shrink-0">
+                                    <i class="fas fa-dumbbell"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-extrabold text-gray-700">Arena de Prática</h3>
+                                    <p class="text-gray-400 font-bold text-sm">Em breve</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button onclick="app.logout()" class="mt-12 text-gray-400 font-bold text-xs uppercase hover:text-brand-red transition-colors border border-gray-200 px-4 py-2 rounded-lg">
+                            Sair da Conta
+                        </button>
+                    </div>
+                `;
+            },
+
+            renderLevels(container) {
+                // (Copie aqui o renderLevels que fizemos no passo anterior, com as cores do Ensino Médio corrigidas)
+                const allLevels = Object.keys(CURRICULO);
+                const fundamental = allLevels.filter(l => !l.includes('nsino'));
+                const medio = allLevels.filter(l => l.includes('nsino')); // Filtro simples por string
+
                 const createBtn = (lvl) => {
                     const theme = LEVEL_THEMES[lvl] || LEVEL_THEMES["6º Ano"];
-                    // Extrai apenas o número e o símbolo (Ex: "6º") ou "1º"
-                    const shortLabel = lvl.split(' ')[0]; 
-                    // Label completo para exibir em baixo se quiser, ou simplificado
-                    const displayLabel = lvl.includes('Médio') ? lvl.replace('Ano do Ensino Médio', 'ano EM') : lvl;
-
+                    const shortLabel = lvl.split(' ')[0];
+                    const displayLabel = lvl.includes('Ensino') ? lvl.replace('Ano do Ensino Médio', 'ano EM') : lvl;
                     return `
                         <button onclick="app.navigate('units', '${lvl}')" 
                             class="relative w-full md:w-40 h-28 rounded-3xl border-b-4 ${theme.borderDark} ${theme.main} hover:brightness-110 transition-all active:scale-95 active:border-b-0 flex flex-col items-center justify-center gap-1 shadow-lg text-white group">
@@ -4852,66 +5093,55 @@
                         </button>
                     `;
                 };
-                
-                let html = `
+
+                container.innerHTML = `
                     <div class="flex flex-col items-center pt-4 w-full animate-fade-in pb-20 max-w-4xl mx-auto">
-                        
-                        <div class="w-full flex items-center gap-4 mb-6">
+                        <div class="w-full flex items-center gap-4 mb-6 mt-4">
                             <div class="h-1 flex-1 bg-gray-200 rounded-full"></div>
                             <h3 class="text-gray-400 font-black text-sm uppercase tracking-widest">Ensino Fundamental</h3>
                             <div class="h-1 flex-1 bg-gray-200 rounded-full"></div>
                         </div>
-
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-12 px-2">
                             ${fundamental.map(lvl => createBtn(lvl)).join('')}
                         </div>
-
                         <div class="w-full flex items-center gap-4 mb-6">
                             <div class="h-1 flex-1 bg-gray-200 rounded-full"></div>
                             <h3 class="text-gray-400 font-black text-sm uppercase tracking-widest">Ensino Médio</h3>
                             <div class="h-1 flex-1 bg-gray-200 rounded-full"></div>
                         </div>
-
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full px-2 md:px-20">
                             ${medio.map(lvl => createBtn(lvl)).join('')}
                         </div>
-
                     </div>
                 `;
-                container.innerHTML = html;
             },
 
             renderUnits(container, levelName) {
-                const theme = LEVEL_THEMES[levelName];
-                const units = CURRICULO[levelName];
+                const theme = LEVEL_THEMES[levelName] || LEVEL_THEMES["6º Ano"];
+                const units = CURRICULO[levelName] || {};
+                const user = this.auth.currentUser;
 
                 let html = `
                     <div class="flex flex-col items-center pt-8 w-full animate-fade-in pb-20">
                         <h3 class="text-gray-700 font-extrabold text-2xl mb-6">Escolha o Conteúdo</h3>
-                        
                         <div class="bg-white border-2 ${theme.border} rounded-2xl px-8 py-3 mb-10 shadow-sm flex items-center gap-4">
                             <span class="font-extrabold text-lg ${theme.text}">${levelName}</span>
                         </div>
-
                         <div class="w-full border-2 ${theme.border} rounded-[2.5rem] p-6 md:p-8 bg-white shadow-sm space-y-8">
                 `;
 
                 let idx = 1;
                 for (const [unitName, lessons] of Object.entries(units)) {
-                    // Calcula progresso
                     const total = lessons.length;
-                    const done = lessons.filter(l => this.completedLessons.includes(l)).length;
-                    const pct = Math.round((done / total) * 100);
+                    const done = lessons.filter(l => user.completedLessons.includes(l)).length;
+                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
                     html += `
                         <div onclick="app.navigate('path', {level: '${levelName}', unit: '${unitName}'})" 
                              class="group cursor-pointer flex items-center gap-6 hover:bg-gray-50 p-2 rounded-2xl transition-colors">
-                            
-                            <div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-extrabold text-white shrink-0 shadow-md transition-transform group-hover:scale-110
-                                ${pct > 0 ? theme.main : 'bg-gray-200 text-gray-400'}">
+                            <div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-extrabold text-white shrink-0 shadow-md transition-transform group-hover:scale-110 ${pct > 0 ? theme.main : 'bg-gray-200 text-gray-400'}">
                                 ${idx}
                             </div>
-
                             <div class="flex-1">
                                 <div class="flex justify-between items-end mb-2">
                                     <h4 class="font-extrabold text-gray-700 text-lg leading-tight group-hover:text-black">${unitName}</h4>
@@ -4925,37 +5155,28 @@
                     `;
                     idx++;
                 }
-
-                html += `</div></div>`;
-                container.innerHTML = html;
+                container.innerHTML = html + `</div></div>`;
             },
 
             renderPath(container, { level, unit }) {
-                const theme = LEVEL_THEMES[level];
-                const lessons = CURRICULO[level][unit];
+                const theme = LEVEL_THEMES[level] || LEVEL_THEMES["6º Ano"];
+                const lessons = CURRICULO[level][unit] || [];
+                const user = this.auth.currentUser;
 
                 let html = `
                     <div class="flex flex-col items-center pt-8 w-full animate-fade-in pb-20 max-w-xl mx-auto">
-                        
-                        <div class="${theme.light} ${theme.text} text-sm font-extrabold px-6 py-2 rounded-2xl mb-4 tracking-wide">
-                            ${level.toUpperCase()}
-                        </div>
-
+                        <div class="${theme.light} ${theme.text} text-sm font-extrabold px-6 py-2 rounded-2xl mb-4 tracking-wide">${level.toUpperCase()}</div>
                         <h2 class="text-2xl md:text-3xl font-extrabold text-gray-700 text-center mb-2 leading-tight">${unit}</h2>
                         <p class="text-gray-400 font-bold text-base mb-12">Trilha de Aprendizagem</p>
-
                         <div class="relative w-full flex flex-col items-center">
                             <div class="absolute top-0 bottom-10 left-1/2 w-3 bg-gray-200 -translate-x-1/2 rounded-full -z-10"></div>
                 `;
 
                 lessons.forEach((lesson, i) => {
-                    const isCompleted = this.completedLessons.includes(lesson);
-                    const isUnlocked = i === 0 || this.completedLessons.includes(lessons[i - 1]);
-
-                    // Ziguezague
+                    const isCompleted = user.completedLessons.includes(lesson);
+                    const isUnlocked = i === 0 || user.completedLessons.includes(lessons[i - 1]);
                     const offset = i % 2 === 0 ? '-translate-x-8' : 'translate-x-8';
 
-                    // Estilos do Botão
                     let btnClass, icon;
                     if (isCompleted) {
                         btnClass = 'bg-[#ffc800] border-[#e5b400] text-white';
@@ -4968,41 +5189,27 @@
                         icon = '<i class="fas fa-lock text-2xl"></i>';
                     }
 
-                    const action = isUnlocked ? `onclick="app.navigate('lesson', '${lesson}')"` : `onclick="alert('Complete a anterior!')"`;
+                    const action = isUnlocked ? `onclick="app.navigate('lesson', '${lesson}')"` : `onclick="alert('Complete a lição anterior!')"`;
 
                     html += `
                         <div class="flex items-center justify-center w-full mb-10 relative">
                             <div class="relative group transition-transform ${offset}">
-                                
                                 <div class="absolute top-1/2 -translate-y-1/2 ${i % 2 === 0 ? 'left-24 text-left' : 'right-24 text-right'} w-48 p-3 rounded-xl border-2 bg-white z-20 shadow-sm transition-all ${isUnlocked ? `${theme.border} scale-105` : 'border-gray-200 opacity-60'}">
                                     <h4 class="font-extrabold text-gray-700 text-sm leading-snug">${lesson}</h4>
                                 </div>
-
                                 <button ${action} class="w-20 h-20 rounded-full border-b-[6px] flex items-center justify-center transition-all active:scale-95 active:border-b-0 z-10 relative ${btnClass}">
                                     ${icon}
-                                    <div class="absolute top-2 left-1/2 -translate-x-1/2 w-2/3 h-1/3 bg-white opacity-20 rounded-full"></div>
                                 </button>
                             </div>
                         </div>
                     `;
                 });
 
-                html += `
-                    <div class="w-24 h-24 mt-4 relative cursor-pointer hover:scale-105 transition-transform">
-                        <div class="w-full h-full rounded-3xl ${theme.light} border-4 ${theme.border} flex items-center justify-center">
-                            <i class="fas fa-gem text-4xl ${theme.text}"></i>
-                        </div>
-                    </div>
-                </div></div>`;
-
-                container.innerHTML = html;
+                container.innerHTML = html + `</div></div>`;
             },
 
             renderLesson(container, lessonName) {
-                // Recupera o texto. Se não existir, mostra aviso.
                 const content = CONTEUDO_TEORIA[lessonName] || `<div class="text-center py-10 text-gray-400 font-bold">Conteúdo em desenvolvimento...</div>`;
-
-                // Processa Widgets e Alertas
                 const processedContent = this.parseContent(content);
 
                 container.innerHTML = `
@@ -5013,37 +5220,25 @@
                             </div>
                             <h1 class="text-2xl md:text-3xl font-black text-gray-700 leading-tight">${lessonName}</h1>
                         </div>
-                        
-                        <div id="lesson-body" class="lesson-content text-gray-700">
-                            ${processedContent}
-                        </div>
-                        
+                        <div id="lesson-body" class="lesson-content text-gray-700">${processedContent}</div>
                         <div class="mt-12 pt-8 border-t-2 border-gray-100">
-                            <button onclick="app.completeLesson('${lessonName}'); app.goBack()" class="w-full bg-brand-green hover:bg-brand-greenDark text-white font-extrabold text-lg py-4 rounded-2xl shadow-btn btn-game uppercase tracking-widest transition-colors flex items-center justify-center gap-3">
+                            <button onclick="app.completeLesson('${lessonName}')" class="w-full bg-brand-green hover:bg-brand-greenDark text-white font-extrabold text-lg py-4 rounded-2xl shadow-btn btn-game uppercase tracking-widest transition-colors flex items-center justify-center gap-3">
                                 <i class="fas fa-check-circle"></i> Concluir Lição
                             </button>
                         </div>
                     </div>
                 `;
 
-                // Renderiza Matemática (KaTeX)
-                renderMathInElement(document.getElementById('lesson-body'), {
-                    delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }]
-                });
-
-                // Ativa Widgets
+                if (window.renderMathInElement) {
+                    renderMathInElement(document.getElementById('lesson-body'), {
+                        delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }]
+                    });
+                }
                 this.activateWidgets();
             },
 
-            // ... (Métodos auxiliares: parseContent, activateWidgets, widgets object) ...
-            // COPIAR OS MÉTODOS DE WIDGETS E PARSE DO CÓDIGO ANTERIOR PARA CÁ
-            // (Vou incluir os métodos base aqui para funcionar, você deve colar os widgets completos dentro de 'widgets')
-
             parseContent(text) {
                 let processed = text.replace(/\n/g, '<br>');
-                // Parsers de Alertas e Dicas (Estilo Duolingo)
-                processed = processed.replace(/\[ALERTA.*?\]:(.*?)(<br>|$)/g, `<div class="bg-red-50 border-l-[6px] border-brand-red p-4 my-6 rounded-r-xl flex gap-4 items-start shadow-sm"><div class="text-brand-red text-xl mt-1"><i class="fas fa-exclamation-triangle"></i></div><div><h5 class="font-black text-brand-red text-sm uppercase tracking-wider mb-1">Atenção</h5><p class="text-gray-700 text-sm font-bold m-0">$1</p></div></div>`);
-                processed = processed.replace(/\[DICA.*?\]:(.*?)(<br>|$)/g, `<div class="bg-blue-50 border-l-[6px] border-brand-blue p-4 my-6 rounded-r-xl flex gap-4 items-start shadow-sm"><div class="text-brand-blue text-xl mt-1"><i class="fas fa-lightbulb"></i></div><div><h5 class="font-black text-brand-blue text-sm uppercase tracking-wider mb-1">Dica Ninja</h5><p class="text-gray-700 text-sm font-bold m-0">$1</p></div></div>`);
                 processed = processed.replace(/\[WIDGET:(.*?)\]/g, (m, name) => `<div class="widget-placeholder w-full my-8" data-widget="${name.trim()}"></div>`);
                 return processed;
             },
@@ -5057,7 +5252,6 @@
             },
 
             widgets: {
-
                 interactive_fraction_decimal_converter(container) {
                     // Estado Inicial
                     let num = 1;
@@ -12274,7 +12468,22 @@
                     btn.onclick = renderNext;
                     list.innerHTML = `<div class="p-4 text-center text-gray-400 font-bold italic">Clique em Iniciar</div>`;
                 }
-            }
+            },
+            renderUnits(c, l) { c.innerHTML = `Units de ${l}`; },
+            renderPath(c, d) { c.innerHTML = `Path de ${d.unit}`; },
+            renderLesson(c, n) {
+                c.innerHTML = `
+                    <div class="p-8 bg-white rounded-xl shadow-card">
+                        <h1 class="text-2xl font-black mb-4">${n}</h1>
+                        <div id="content">${this.parseContent(CONTEUDO_TEORIA[n] || 'Em breve')}</div>
+                        <button onclick="app.saveProgress(50, '${n}'); app.goBack()" class="w-full bg-brand-green text-white font-bold py-3 rounded-xl mt-8 shadow-btn">Concluir</button>
+                    </div>
+                `;
+            },
+            parseContent(t) { return t; },
+            activateWidgets() { },
+            widgets: {}
+
         };
 
         app.init();
