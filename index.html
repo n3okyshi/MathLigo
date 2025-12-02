@@ -4886,31 +4886,25 @@
             init() {
                 this.render('loading');
 
-                // 1. Verifica se o Firebase está ativo
-                if (auth) {
+                if (typeof auth !== 'undefined') {
                     auth.onAuthStateChanged(async (firebaseUser) => {
                         if (firebaseUser) {
-                            // Usuário Firebase Logado
                             console.log("Firebase User Detectado");
                             this.isGuest = false;
                             await this.loadFirebaseData(firebaseUser);
                             this.render('home');
                         } else {
-                            // Ninguém no Firebase -> Checa se há Convidado Local
                             this.checkGuestSession();
                         }
                     });
                 } else {
-                    // Sem Firebase -> Vai direto para checagem local
                     this.checkGuestSession();
                 }
             },
 
-            // Verifica se existe um "Convidado" salvo no navegador
             checkGuestSession() {
                 const guestData = localStorage.getItem('mathlingo_guest_data');
                 if (guestData) {
-                    console.log("Convidado Detectado");
                     this.user = JSON.parse(guestData);
                     this.isGuest = true;
                     this.render('home');
@@ -4921,25 +4915,51 @@
                 }
             },
 
-            // --- LOGIN CONVIDADO (NOVO) ---
             loginGuest() {
                 const newGuest = {
                     uid: 'guest_' + Date.now(),
                     name: 'Visitante',
-                    photo: null, // Sem foto
+                    photo: null,
                     xp: 0,
                     completedLessons: []
                 };
-                
                 this.user = newGuest;
                 this.isGuest = true;
-                this.saveLocalData(); // Salva no localStorage
+                this.saveLocalData();
                 this.render('home');
             },
 
-            // --- LÓGICA DE DADOS (HÍBRIDA) ---
+            loginGoogle() {
+                if (typeof auth === 'undefined') return alert("Erro: Firebase não configurado.");
+                auth.signInWithPopup(provider).catch(err => alert(err.message));
+            },
+
+            async loginEmail(email, pass) {
+                if (typeof auth === 'undefined') return;
+                try {
+                    await auth.signInWithEmailAndPassword(email, pass);
+                } catch (e) { alert("Erro: " + e.message); return { error: true }; }
+            },
             
-            // Carrega da Nuvem
+            async registerEmail(email, pass, name) {
+                if (typeof auth === 'undefined') return;
+                try {
+                    const res = await auth.createUserWithEmailAndPassword(email, pass);
+                    await res.user.updateProfile({ displayName: name });
+                    return { success: true };
+                } catch (e) { alert("Erro: " + e.message); return { error: true }; }
+            },
+
+            logout() {
+                if (this.isGuest) {
+                    this.user = null;
+                    this.isGuest = false;
+                    this.render('login');
+                } else {
+                    auth.signOut();
+                }
+            },
+
             async loadFirebaseData(firebaseUser) {
                 try {
                     const userRef = db.collection('users').doc(firebaseUser.uid);
@@ -4955,7 +4975,6 @@
                             completedLessons: data.completedLessons || []
                         };
                     } else {
-                        // Cria novo na nuvem
                         this.user = {
                             uid: firebaseUser.uid,
                             name: firebaseUser.displayName,
@@ -4967,85 +4986,34 @@
                     }
                 } catch (err) {
                     console.error(err);
-                    alert("Erro ao carregar nuvem. Verifique sua conexão.");
                 }
             },
 
-            // Salva Progresso (Inteligente: Nuvem ou Local)
+            saveLocalData() {
+                localStorage.setItem('mathlingo_guest_data', JSON.stringify(this.user));
+            },
+
             async saveProgress(xpAmount, lessonName) {
                 if (!this.user) return;
 
-                // 1. Atualiza o objeto em memória (RAM)
                 this.user.xp += xpAmount;
                 if (lessonName && !this.user.completedLessons.includes(lessonName)) {
                     this.user.completedLessons.push(lessonName);
                 }
 
-                // 2. Persiste os dados
                 if (this.isGuest) {
-                    // Salva no LocalStorage
                     this.saveLocalData();
                 } else {
-                    // Salva no Firestore
                     try {
                         await db.collection('users').doc(this.user.uid).update({
                             xp: this.user.xp,
                             completedLessons: this.user.completedLessons
                         });
-                    } catch (err) {
-                        console.error("Erro ao salvar na nuvem", err);
-                    }
+                    } catch (err) { console.error(err); }
                 }
-                
                 this.updateHeader();
             },
 
-            // Helper para salvar convidado
-            saveLocalData() {
-                localStorage.setItem('mathlingo_guest_data', JSON.stringify(this.user));
-            },
-
-            // --- AÇÕES ---
-            loginGoogle() {
-                if (!auth) return alert("Firebase não configurado!");
-                auth.signInWithPopup(provider).catch(err => alert(err.message));
-            },
-
-            // Login Email (Mantido para quem quiser)
-            async loginEmail(email, pass) {
-                if (!auth) return;
-                try {
-                    await auth.signInWithEmailAndPassword(email, pass);
-                } catch (e) { alert(e.message); }
-            },
-            
-            // Registro Email
-            async registerEmail(email, pass, name) {
-                if (!auth) return;
-                try {
-                    const res = await auth.createUserWithEmailAndPassword(email, pass);
-                    await res.user.updateProfile({ displayName: name });
-                    // O listener vai pegar o login automaticamente
-                    return { success: true };
-                } catch (e) { return { error: e.message }; }
-            },
-
-            logout() {
-                if (this.isGuest) {
-                    // Logout de convidado apenas limpa a tela, mas mantemos os dados salvos
-                    // para ele poder voltar depois (ou podemos dar opção de limpar).
-                    // Aqui, vamos apenas voltar para login, mantendo os dados no storage.
-                    // Se quiser APAGAR os dados do convidado, use localStorage.removeItem.
-                    this.user = null;
-                    this.isGuest = false;
-                    this.render('login');
-                } else {
-                    // Logout do Firebase
-                    auth.signOut();
-                }
-            },
-
-            // --- NAVEGAÇÃO ---
             navigate(view, data = null) {
                 if (this.currentView && this.currentView !== 'loading') {
                     this.history.push({ view: this.currentView, data: this.currentData });
@@ -5063,7 +5031,6 @@
                 this.render(prev.view, prev.data);
             },
 
-            // --- RENDER MASTER ---
             render(view, data) {
                 const container = document.getElementById('main-container');
                 const btnBack = document.getElementById('btn-back');
@@ -5071,7 +5038,6 @@
                 
                 window.scrollTo(0, 0);
 
-                // Controle de Header e Botão Voltar
                 if (view === 'login' || view === 'loading') {
                     header.classList.add('hidden');
                     btnBack.classList.add('hidden');
@@ -5101,9 +5067,8 @@
                 if (this.user && fireEl) fireEl.innerText = this.user.completedLessons.length;
             },
 
-            // --- TELAS ---
-
-            renderLogin(container) {
+           renderLogin(container) {
+                // CORREÇÃO PRINCIPAL: onclick="app.loginGoogle()" em vez de app.auth.loginGoogle()
                 container.innerHTML = `
                     <div class="flex flex-col items-center justify-center min-h-[90vh] animate-fade-in px-4 py-8">
                         <div class="mb-8 text-center">
@@ -5116,7 +5081,7 @@
 
                         <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-card border-2 border-gray-100 w-full max-w-md">
                             
-                            <button onclick="app.auth.loginGoogle()" class="w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-3 group active:scale-95 mb-4">
+                            <button onclick="app.loginGoogle()" class="w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-3 group active:scale-95 mb-4">
                                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5 group-hover:scale-110 transition-transform">
                                 <span>Entrar com Google</span>
                             </button>
@@ -5151,7 +5116,6 @@
                     </div>
                 `;
 
-                // Lógica do Form (igual ao anterior)
                 const btnSubmit = container.querySelector('#btn-submit');
                 const btnToggle = container.querySelector('#btn-toggle');
                 const fieldName = container.querySelector('#field-name');
@@ -5181,26 +5145,27 @@
                     const name = container.querySelector('#inp-name').value;
                     if (!email || !pass) return alert("Preencha email e senha!");
 
+                    // Feedback Loading
+                    btnSubmit.innerText = "...";
+                    
                     if (isLogin) {
-                        await app.auth.loginEmail(email, pass);
+                        // CORREÇÃO: Chamando app.loginEmail diretamente
+                        const res = await app.loginEmail(email, pass);
+                        if (res && res.error) btnSubmit.innerText = "ENTRAR";
                     } else {
-                        if (!name) return alert("Preencha seu nome!");
-                        const res = await app.auth.registerEmail(email, pass, name);
+                        if (!name) { alert("Preencha seu nome!"); btnSubmit.innerText = "CADASTRAR"; return; }
+                        // CORREÇÃO: Chamando app.registerEmail diretamente
+                        const res = await app.registerEmail(email, pass, name);
                         if (res && res.success) { alert("Conta criada!"); toggleText.innerText = "Faça login agora."; isLogin = true; }
-                        if (res && res.error) alert(res.error);
+                        btnSubmit.innerText = isLogin ? "ENTRAR" : "CADASTRAR";
                     }
                 };
             },
 
             renderHome(container) {
                 const u = this.user;
-                // Avatar: Se for Google (photo), usa. Se for Convidado (sem photo), usa ícone Astronauta. Se for Email (letra), usa letra.
-                let avatar;
-                if (u.photo) avatar = `<img src="${u.photo}" class="w-full h-full object-cover">`;
-                else if (this.isGuest) avatar = `<i class="fas fa-user-astronaut text-5xl text-white"></i>`;
-                else avatar = `<span class="text-6xl font-black text-white">${u.name[0]}</span>`;
-
-                const guestLabel = this.isGuest ? `<span class="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded ml-2 font-bold uppercase">Modo Offline</span>` : '';
+                const avatar = u.photo ? `<img src="${u.photo}" class="w-full h-full object-cover">` : (this.isGuest ? `<i class="fas fa-user-astronaut text-5xl text-white"></i>` : `<span class="text-6xl font-black text-white">${u.name[0]}</span>`);
+                const guestBadge = this.isGuest ? `<span class="bg-gray-200 text-gray-500 text-xs px-2 py-1 rounded ml-2 font-bold uppercase">Offline</span>` : '';
 
                 container.innerHTML = `
                     <div class="flex flex-col items-center justify-center pt-10 animate-fade-in w-full">
@@ -5211,7 +5176,7 @@
                             <h2 class="text-3xl font-extrabold text-gray-700 text-center">Olá, ${u.name.split(' ')[0]}!</h2>
                             <div class="flex items-center mt-2">
                                 <p class="text-gray-400 font-bold text-lg">Nível Iniciante • ${u.xp} XP</p>
-                                ${guestLabel}
+                                ${guestBadge}
                             </div>
                         </div>
 
@@ -5222,7 +5187,7 @@
                                 </div>
                                 <div>
                                     <h3 class="text-2xl font-extrabold text-gray-700 group-hover:text-brand-purple transition-colors">Trilha de Teoria</h3>
-                                    <p class="text-gray-400 font-bold text-sm">Começar a Estudar</p>
+                                    <p class="text-gray-400 font-bold text-sm">Aulas passo a passo</p>
                                 </div>
                             </div>
                             <div onclick="alert('Em breve!')" class="group cursor-pointer bg-white border-2 border-gray-200 rounded-3xl p-6 flex items-center gap-6 opacity-60">
@@ -5231,23 +5196,23 @@
                                 </div>
                                 <div>
                                     <h3 class="text-2xl font-extrabold text-gray-700">Arena de Prática</h3>
-                                    <p class="text-gray-400 font-bold text-sm">Em breve</p>
+                                    <p class="text-gray-400 font-bold text-sm">Desafios e Quiz</p>
                                 </div>
                             </div>
                         </div>
                         
                         <button onclick="app.logout()" class="mt-12 text-gray-400 font-bold text-xs uppercase hover:text-brand-red transition-colors border border-gray-200 px-4 py-2 rounded-lg">
-                            ${this.isGuest ? 'Sair (Apagar Dados)' : 'Sair da Conta'}
+                            ${this.isGuest ? 'Apagar Dados e Sair' : 'Sair da Conta'}
                         </button>
                     </div>
                 `;
             },
 
             renderLevels(container) {
-                // (Copie aqui o renderLevels que fizemos no passo anterior, com as cores do Ensino Médio corrigidas)
                 const allLevels = Object.keys(CURRICULO);
                 const fundamental = allLevels.filter(l => !l.includes('Ensino'));
                 const medio = allLevels.filter(l => l.includes('Ensino'));
+
                 const createBtn = (lvl) => {
                     const theme = LEVEL_THEMES[lvl] || LEVEL_THEMES["6º Ano"];
                     const shortLabel = lvl.split(' ')[0]; 
@@ -5262,6 +5227,7 @@
                         </button>
                     `;
                 };
+                
                 container.innerHTML = `
                     <div class="flex flex-col items-center pt-4 w-full animate-fade-in pb-20 max-w-4xl mx-auto">
                         <div class="w-full flex items-center gap-4 mb-6 mt-4">
@@ -5298,9 +5264,8 @@
                  }
                  c.innerHTML = html + `</div></div>`;
             },
-
             renderPath(c, d) {
-                const theme = LEVEL_THEMES[d.level];
+                const theme = LEVEL_THEMES[d.level] || LEVEL_THEMES["6º Ano"];
                 const lessons = CURRICULO[d.level][d.unit] || [];
                 let html = `<div class="flex flex-col items-center pt-8 w-full animate-fade-in pb-20 max-w-xl mx-auto"><div class="${theme.light} ${theme.text} text-sm font-extrabold px-6 py-2 rounded-2xl mb-4 tracking-wide">${d.level.toUpperCase()}</div><h2 class="text-2xl md:text-3xl font-extrabold text-gray-700 text-center mb-2 leading-tight">${d.unit}</h2><p class="text-gray-400 font-bold text-base mb-12">Trilha de Aprendizagem</p><div class="relative w-full flex flex-col items-center"><div class="absolute top-0 bottom-10 left-1/2 w-3 bg-gray-200 -translate-x-1/2 rounded-full -z-10"></div>`;
                 lessons.forEach((l,i)=>{
@@ -5315,8 +5280,7 @@
                 });
                 c.innerHTML = html + `</div></div>`;
             },
-
-           renderLesson(c, n) {
+            renderLesson(c, n) {
                 const content = CONTEUDO_TEORIA[n] || `<div class="text-center py-10 text-gray-400 font-bold">Conteúdo em desenvolvimento...</div>`;
                 c.innerHTML = `<div class="bg-white p-6 md:p-10 rounded-[2rem] shadow-card border-2 border-gray-100 animate-fade-in mb-20 max-w-3xl mx-auto"><div class="flex items-center gap-3 mb-8 border-b-2 border-gray-100 pb-6"><div class="w-12 h-12 bg-brand-green rounded-xl flex items-center justify-center text-white text-xl shadow-sm"><i class="fas fa-book"></i></div><h1 class="text-2xl md:text-3xl font-black text-gray-700 leading-tight">${n}</h1></div><div id="lesson-body" class="lesson-content text-gray-700">${this.parseContent(content)}</div><div class="mt-12 pt-8 border-t-2 border-gray-100"><button onclick="app.saveProgress(50,'${n}');app.goBack()" class="w-full bg-brand-green hover:bg-brand-greenDark text-white font-extrabold text-lg py-4 rounded-2xl shadow-btn btn-game uppercase tracking-widest transition-colors flex items-center justify-center gap-3"><i class="fas fa-check-circle"></i> Concluir Lição</button></div></div>`;
                 if(window.renderMathInElement) renderMathInElement(document.getElementById('lesson-body'),{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]});
@@ -5325,10 +5289,11 @@
 
             parseContent(t){ 
                 let p=t.replace(/\n/g,'<br>');
+                p=p.replace(/\[ALERTA.*?\]:(.*?)(<br>|$)/g, `<div class="bg-red-50 border-l-[6px] border-brand-red p-4 my-6 rounded-r-xl flex gap-4 items-start shadow-sm"><div class="text-brand-red text-xl mt-1"><i class="fas fa-exclamation-triangle"></i></div><div><h5 class="font-black text-brand-red text-sm uppercase tracking-wider mb-1">Atenção</h5><p class="text-gray-700 text-sm font-bold m-0">$1</p></div></div>`);
+                p=p.replace(/\[DICA.*?\]:(.*?)(<br>|$)/g, `<div class="bg-blue-50 border-l-[6px] border-brand-blue p-4 my-6 rounded-r-xl flex gap-4 items-start shadow-sm"><div class="text-brand-blue text-xl mt-1"><i class="fas fa-lightbulb"></i></div><div><h5 class="font-black text-brand-blue text-sm uppercase tracking-wider mb-1">Dica Ninja</h5><p class="text-gray-700 text-sm font-bold m-0">$1</p></div></div>`);
                 p=p.replace(/\[WIDGET:(.*?)\]/g,(m,n)=>`<div class="widget-placeholder w-full my-8" data-widget="${n.trim()}"></div>`);
                 return p; 
             },
-
             activateWidgets(){
                 document.querySelectorAll('.widget-placeholder').forEach(d=>{
                     const n=d.dataset.widget;
