@@ -160,11 +160,16 @@
             appId: "1:852191827758:web:5f1365bb919b81eb808cbf"
         };
 
-        // Inicializa Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore(); // Banco de Dados na Nuvem
-        const provider = new firebase.auth.GoogleAuthProvider();
+        // Inicializa o Firebase com segurança
+        let auth, db, provider;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            provider = new firebase.auth.GoogleAuthProvider();
+        } catch (e) {
+            console.warn("Firebase não configurado ou erro de conexão. O modo Convidado funcionará.", e);
+        }
 
         // --- TEMAS POR NÍVEL ---
         const LEVEL_THEMES = {
@@ -4788,6 +4793,10 @@
             currentView: 'loading',
             currentData: null,
 
+            // Estado do Usuário
+            user: null,
+            isGuest: false, // Flag para saber se é convidado
+
             // Estado do Usuário (Sincronizado com a Nuvem)
             user: {
                 uid: null,
@@ -4864,6 +4873,8 @@
                 }
             },
 
+
+
             // 2. INICIALIZAÇÃO
             //init() {
             //    if (this.auth.checkSession()) {
@@ -4875,75 +4886,163 @@
             init() {
                 this.render('loading');
 
-                // O Firebase avisa quando o usuário entra/sai ou se já estava logado
-                auth.onAuthStateChanged(async (firebaseUser) => {
-                    if (firebaseUser) {
-                        // Usuário Logado! Vamos pegar os dados dele no Banco
-                        await this.loadUserData(firebaseUser);
-                        this.render('home');
-                    } else {
-                        // Ninguém logado
-                        this.user = null;
-                        this.render('login');
-                    }
-                });
-            },
-
-            // --- LÓGICA DE BANCO DE DADOS (Firestore) ---
-            async loadUserData(firebaseUser) {
-                const userRef = db.collection('users').doc(firebaseUser.uid);
-                const doc = await userRef.get();
-
-                if (doc.exists) {
-                    // Usuário antigo: carrega progresso
-                    const data = doc.data();
-                    this.user = {
-                        uid: firebaseUser.uid,
-                        name: firebaseUser.displayName,
-                        photo: firebaseUser.photoURL,
-                        xp: data.xp || 0,
-                        completedLessons: data.completedLessons || []
-                    };
+                // 1. Verifica se o Firebase está ativo
+                if (auth) {
+                    auth.onAuthStateChanged(async (firebaseUser) => {
+                        if (firebaseUser) {
+                            // Usuário Firebase Logado
+                            console.log("Firebase User Detectado");
+                            this.isGuest = false;
+                            await this.loadFirebaseData(firebaseUser);
+                            this.render('home');
+                        } else {
+                            // Ninguém no Firebase -> Checa se há Convidado Local
+                            this.checkGuestSession();
+                        }
+                    });
                 } else {
-                    // Novo usuário: cria documento no banco
-                    this.user = {
-                        uid: firebaseUser.uid,
-                        name: firebaseUser.displayName,
-                        photo: firebaseUser.photoURL,
-                        xp: 0,
-                        completedLessons: []
-                    };
-                    await userRef.set({ xp: 0, completedLessons: [] });
+                    // Sem Firebase -> Vai direto para checagem local
+                    this.checkGuestSession();
                 }
             },
 
+            // Verifica se existe um "Convidado" salvo no navegador
+            checkGuestSession() {
+                const guestData = localStorage.getItem('mathlingo_guest_data');
+                if (guestData) {
+                    console.log("Convidado Detectado");
+                    this.user = JSON.parse(guestData);
+                    this.isGuest = true;
+                    this.render('home');
+                } else {
+                    this.user = null;
+                    this.isGuest = false;
+                    this.render('login');
+                }
+            },
+
+            // --- LOGIN CONVIDADO (NOVO) ---
+            loginGuest() {
+                const newGuest = {
+                    uid: 'guest_' + Date.now(),
+                    name: 'Visitante',
+                    photo: null, // Sem foto
+                    xp: 0,
+                    completedLessons: []
+                };
+                
+                this.user = newGuest;
+                this.isGuest = true;
+                this.saveLocalData(); // Salva no localStorage
+                this.render('home');
+            },
+
+            // --- LÓGICA DE DADOS (HÍBRIDA) ---
+            
+            // Carrega da Nuvem
+            async loadFirebaseData(firebaseUser) {
+                try {
+                    const userRef = db.collection('users').doc(firebaseUser.uid);
+                    const doc = await userRef.get();
+
+                    if (doc.exists) {
+                        const data = doc.data();
+                        this.user = {
+                            uid: firebaseUser.uid,
+                            name: firebaseUser.displayName,
+                            photo: firebaseUser.photoURL,
+                            xp: data.xp || 0,
+                            completedLessons: data.completedLessons || []
+                        };
+                    } else {
+                        // Cria novo na nuvem
+                        this.user = {
+                            uid: firebaseUser.uid,
+                            name: firebaseUser.displayName,
+                            photo: firebaseUser.photoURL,
+                            xp: 0,
+                            completedLessons: []
+                        };
+                        await userRef.set({ xp: 0, completedLessons: [] });
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro ao carregar nuvem. Verifique sua conexão.");
+                }
+            },
+
+            // Salva Progresso (Inteligente: Nuvem ou Local)
             async saveProgress(xpAmount, lessonName) {
                 if (!this.user) return;
 
-                // Atualiza localmente para ser rápido
+                // 1. Atualiza o objeto em memória (RAM)
                 this.user.xp += xpAmount;
                 if (lessonName && !this.user.completedLessons.includes(lessonName)) {
                     this.user.completedLessons.push(lessonName);
                 }
 
-                // Salva na Nuvem (Firestore)
-                const userRef = db.collection('users').doc(this.user.uid);
-                await userRef.update({
-                    xp: this.user.xp,
-                    completedLessons: this.user.completedLessons
-                });
-
-                // Atualiza a UI do Header se estiver visível
+                // 2. Persiste os dados
+                if (this.isGuest) {
+                    // Salva no LocalStorage
+                    this.saveLocalData();
+                } else {
+                    // Salva no Firestore
+                    try {
+                        await db.collection('users').doc(this.user.uid).update({
+                            xp: this.user.xp,
+                            completedLessons: this.user.completedLessons
+                        });
+                    } catch (err) {
+                        console.error("Erro ao salvar na nuvem", err);
+                    }
+                }
+                
                 this.updateHeader();
             },
 
-            // --- AÇÕES DE AUTENTICAÇÃO ---
+            // Helper para salvar convidado
+            saveLocalData() {
+                localStorage.setItem('mathlingo_guest_data', JSON.stringify(this.user));
+            },
+
+            // --- AÇÕES ---
             loginGoogle() {
-                auth.signInWithPopup(provider).catch(err => alert("Erro no login: " + err.message));
+                if (!auth) return alert("Firebase não configurado!");
+                auth.signInWithPopup(provider).catch(err => alert(err.message));
+            },
+
+            // Login Email (Mantido para quem quiser)
+            async loginEmail(email, pass) {
+                if (!auth) return;
+                try {
+                    await auth.signInWithEmailAndPassword(email, pass);
+                } catch (e) { alert(e.message); }
+            },
+            
+            // Registro Email
+            async registerEmail(email, pass, name) {
+                if (!auth) return;
+                try {
+                    const res = await auth.createUserWithEmailAndPassword(email, pass);
+                    await res.user.updateProfile({ displayName: name });
+                    // O listener vai pegar o login automaticamente
+                    return { success: true };
+                } catch (e) { return { error: e.message }; }
             },
 
             logout() {
-                auth.signOut(); // O onAuthStateChanged vai jogar para a tela de login automaticamente
+                if (this.isGuest) {
+                    // Logout de convidado apenas limpa a tela, mas mantemos os dados salvos
+                    // para ele poder voltar depois (ou podemos dar opção de limpar).
+                    // Aqui, vamos apenas voltar para login, mantendo os dados no storage.
+                    // Se quiser APAGAR os dados do convidado, use localStorage.removeItem.
+                    this.user = null;
+                    this.isGuest = false;
+                    this.render('login');
+                } else {
+                    // Logout do Firebase
+                    auth.signOut();
+                }
             },
 
             // --- NAVEGAÇÃO ---
@@ -4964,15 +5063,15 @@
                 this.render(prev.view, prev.data);
             },
 
-            // --- RENDERIZADORES ---
+            // --- RENDER MASTER ---
             render(view, data) {
                 const container = document.getElementById('main-container');
                 const btnBack = document.getElementById('btn-back');
                 const header = document.querySelector('header');
-
+                
                 window.scrollTo(0, 0);
 
-                // Controle de Elementos Globais
+                // Controle de Header e Botão Voltar
                 if (view === 'login' || view === 'loading') {
                     header.classList.add('hidden');
                     btnBack.classList.add('hidden');
@@ -4987,7 +5086,6 @@
                     return;
                 }
 
-                // Roteador
                 if (view === 'login') this.renderLogin(container);
                 else if (view === 'home') this.renderHome(container);
                 else if (view === 'levels') this.renderLevels(container);
@@ -5004,36 +5102,105 @@
             },
 
             // --- TELAS ---
+
             renderLogin(container) {
                 container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in px-4">
-                        <div class="mb-12 text-center">
-                            <div class="w-24 h-24 bg-brand-green rounded-2xl mx-auto flex items-center justify-center text-5xl text-white shadow-lg mb-4 relative overflow-hidden">
+                    <div class="flex flex-col items-center justify-center min-h-[90vh] animate-fade-in px-4 py-8">
+                        <div class="mb-8 text-center">
+                            <div class="w-20 h-20 bg-brand-green rounded-2xl mx-auto flex items-center justify-center text-4xl text-white shadow-lg mb-4 relative overflow-hidden">
                                 <i class="fas fa-shapes"></i>
                             </div>
-                            <h1 class="text-4xl font-black text-brand-green mb-2">MathLingo</h1>
-                            <p class="text-gray-400 font-bold">Sua jornada matemática começa aqui.</p>
+                            <h1 class="text-3xl font-black text-brand-green mb-1">MathLingo</h1>
+                            <p class="text-gray-400 font-bold text-sm">Sua jornada matemática.</p>
                         </div>
 
-                        <div class="bg-white p-8 rounded-[2rem] shadow-card border-2 border-gray-100 w-full max-w-md text-center">
-                            <h2 class="text-xl font-bold text-gray-700 mb-6">Crie seu perfil em segundos</h2>
+                        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-card border-2 border-gray-100 w-full max-w-md">
                             
-                            <button onclick="app.loginGoogle()" class="w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-3 group active:scale-95">
-                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6 group-hover:scale-110 transition-transform">
-                                <span>Continuar com Google</span>
+                            <button onclick="app.auth.loginGoogle()" class="w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-3 group active:scale-95 mb-4">
+                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5 group-hover:scale-110 transition-transform">
+                                <span>Entrar com Google</span>
                             </button>
 
-                            <p class="text-xs text-gray-400 mt-6 font-bold">
-                                Seus dados de progresso serão salvos na nuvem automaticamente.
-                            </p>
+                            <button onclick="app.loginGuest()" class="w-full bg-gray-100 border-2 border-transparent hover:border-gray-300 text-gray-500 font-bold py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-3 group active:scale-95 mb-6">
+                                <i class="fas fa-user-astronaut"></i>
+                                <span>Continuar como Convidado</span>
+                            </button>
+
+                            <div class="relative flex py-2 items-center mb-6">
+                                <div class="flex-grow border-t border-gray-200"></div>
+                                <span class="flex-shrink mx-4 text-gray-300 text-xs font-bold uppercase">Ou via Email</span>
+                                <div class="flex-grow border-t border-gray-200"></div>
+                            </div>
+
+                            <div class="flex flex-col gap-3">
+                                <div id="field-name" class="hidden">
+                                    <input type="text" id="inp-name" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-brand-green transition-colors" placeholder="Seu Nome">
+                                </div>
+                                <input type="email" id="inp-email" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-brand-blue transition-colors" placeholder="Email">
+                                <input type="password" id="inp-pass" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-brand-blue transition-colors" placeholder="Senha">
+                                <button id="btn-submit" class="w-full bg-brand-blue hover:bg-brand-blueDark text-white font-extrabold text-lg py-3 rounded-xl shadow-btn btn-game uppercase tracking-widest transition-all mt-2">
+                                    ENTRAR
+                                </button>
+                            </div>
+
+                            <div class="text-center mt-6">
+                                <p class="text-sm font-bold text-gray-400" id="toggle-text">Não tem conta?</p>
+                                <button id="btn-toggle" class="text-brand-blue font-black uppercase text-xs hover:underline mt-1">CRIAR CONTA</button>
+                            </div>
                         </div>
                     </div>
                 `;
+
+                // Lógica do Form (igual ao anterior)
+                const btnSubmit = container.querySelector('#btn-submit');
+                const btnToggle = container.querySelector('#btn-toggle');
+                const fieldName = container.querySelector('#field-name');
+                const toggleText = container.querySelector('#toggle-text');
+                let isLogin = true;
+
+                btnToggle.onclick = () => {
+                    isLogin = !isLogin;
+                    if (isLogin) {
+                        fieldName.classList.add('hidden');
+                        btnSubmit.innerText = "ENTRAR";
+                        btnSubmit.className = btnSubmit.className.replace('bg-brand-green', 'bg-brand-blue').replace('bg-brand-greenDark', 'bg-brand-blueDark');
+                        toggleText.innerText = "Não tem conta?";
+                        btnToggle.innerText = "CRIAR CONTA";
+                    } else {
+                        fieldName.classList.remove('hidden');
+                        btnSubmit.innerText = "CADASTRAR";
+                        btnSubmit.className = btnSubmit.className.replace('bg-brand-blue', 'bg-brand-green').replace('bg-brand-blueDark', 'bg-brand-greenDark');
+                        toggleText.innerText = "Já tem conta?";
+                        btnToggle.innerText = "FAZER LOGIN";
+                    }
+                };
+
+                btnSubmit.onclick = async () => {
+                    const email = container.querySelector('#inp-email').value;
+                    const pass = container.querySelector('#inp-pass').value;
+                    const name = container.querySelector('#inp-name').value;
+                    if (!email || !pass) return alert("Preencha email e senha!");
+
+                    if (isLogin) {
+                        await app.auth.loginEmail(email, pass);
+                    } else {
+                        if (!name) return alert("Preencha seu nome!");
+                        const res = await app.auth.registerEmail(email, pass, name);
+                        if (res && res.success) { alert("Conta criada!"); toggleText.innerText = "Faça login agora."; isLogin = true; }
+                        if (res && res.error) alert(res.error);
+                    }
+                };
             },
 
             renderHome(container) {
                 const u = this.user;
-                const avatar = u.photo ? `<img src="${u.photo}" class="w-full h-full object-cover">` : `<span class="text-6xl font-black text-white">${u.name[0]}</span>`;
+                // Avatar: Se for Google (photo), usa. Se for Convidado (sem photo), usa ícone Astronauta. Se for Email (letra), usa letra.
+                let avatar;
+                if (u.photo) avatar = `<img src="${u.photo}" class="w-full h-full object-cover">`;
+                else if (this.isGuest) avatar = `<i class="fas fa-user-astronaut text-5xl text-white"></i>`;
+                else avatar = `<span class="text-6xl font-black text-white">${u.name[0]}</span>`;
+
+                const guestLabel = this.isGuest ? `<span class="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded ml-2 font-bold uppercase">Modo Offline</span>` : '';
 
                 container.innerHTML = `
                     <div class="flex flex-col items-center justify-center pt-10 animate-fade-in w-full">
@@ -5042,7 +5209,10 @@
                                 ${avatar}
                             </div>
                             <h2 class="text-3xl font-extrabold text-gray-700 text-center">Olá, ${u.name.split(' ')[0]}!</h2>
-                            <p class="text-gray-400 font-bold text-lg mt-2">Nível Iniciante • ${u.xp} XP</p>
+                            <div class="flex items-center mt-2">
+                                <p class="text-gray-400 font-bold text-lg">Nível Iniciante • ${u.xp} XP</p>
+                                ${guestLabel}
+                            </div>
                         </div>
 
                         <div class="w-full max-w-md space-y-6">
@@ -5067,7 +5237,7 @@
                         </div>
                         
                         <button onclick="app.logout()" class="mt-12 text-gray-400 font-bold text-xs uppercase hover:text-brand-red transition-colors border border-gray-200 px-4 py-2 rounded-lg">
-                            Sair da Conta
+                            ${this.isGuest ? 'Sair (Apagar Dados)' : 'Sair da Conta'}
                         </button>
                     </div>
                 `;
@@ -5076,12 +5246,11 @@
             renderLevels(container) {
                 // (Copie aqui o renderLevels que fizemos no passo anterior, com as cores do Ensino Médio corrigidas)
                 const allLevels = Object.keys(CURRICULO);
-                const fundamental = allLevels.filter(l => !l.includes('nsino'));
-                const medio = allLevels.filter(l => l.includes('nsino')); // Filtro simples por string
-
+                const fundamental = allLevels.filter(l => !l.includes('Ensino'));
+                const medio = allLevels.filter(l => l.includes('Ensino'));
                 const createBtn = (lvl) => {
                     const theme = LEVEL_THEMES[lvl] || LEVEL_THEMES["6º Ano"];
-                    const shortLabel = lvl.split(' ')[0];
+                    const shortLabel = lvl.split(' ')[0]; 
                     const displayLabel = lvl.includes('Ensino') ? lvl.replace('Ano do Ensino Médio', 'ano EM') : lvl;
                     return `
                         <button onclick="app.navigate('units', '${lvl}')" 
@@ -5093,7 +5262,6 @@
                         </button>
                     `;
                 };
-
                 container.innerHTML = `
                     <div class="flex flex-col items-center pt-4 w-full animate-fade-in pb-20 max-w-4xl mx-auto">
                         <div class="w-full flex items-center gap-4 mb-6 mt-4">
@@ -5116,138 +5284,56 @@
                 `;
             },
 
-            renderUnits(container, levelName) {
-                const theme = LEVEL_THEMES[levelName] || LEVEL_THEMES["6º Ano"];
-                const units = CURRICULO[levelName] || {};
-                const user = this.auth.currentUser;
-
-                let html = `
-                    <div class="flex flex-col items-center pt-8 w-full animate-fade-in pb-20">
-                        <h3 class="text-gray-700 font-extrabold text-2xl mb-6">Escolha o Conteúdo</h3>
-                        <div class="bg-white border-2 ${theme.border} rounded-2xl px-8 py-3 mb-10 shadow-sm flex items-center gap-4">
-                            <span class="font-extrabold text-lg ${theme.text}">${levelName}</span>
-                        </div>
-                        <div class="w-full border-2 ${theme.border} rounded-[2.5rem] p-6 md:p-8 bg-white shadow-sm space-y-8">
-                `;
-
-                let idx = 1;
-                for (const [unitName, lessons] of Object.entries(units)) {
+            renderUnits(c, l) { 
+                 const theme = LEVEL_THEMES[l] || LEVEL_THEMES["6º Ano"];
+                 const units = CURRICULO[l] || {};
+                 let html = `<div class="flex flex-col items-center pt-8 w-full animate-fade-in pb-20"><h3 class="text-gray-700 font-extrabold text-2xl mb-6">Escolha o Conteúdo</h3><div class="bg-white border-2 ${theme.border} rounded-2xl px-8 py-3 mb-10 shadow-sm flex items-center gap-4"><span class="font-extrabold text-lg ${theme.text}">${l}</span></div><div class="w-full border-2 ${theme.border} rounded-[2.5rem] p-6 md:p-8 bg-white shadow-sm space-y-8">`;
+                 let idx = 1;
+                 for (const [unitName, lessons] of Object.entries(units)) {
                     const total = lessons.length;
-                    const done = lessons.filter(l => user.completedLessons.includes(l)).length;
-                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-                    html += `
-                        <div onclick="app.navigate('path', {level: '${levelName}', unit: '${unitName}'})" 
-                             class="group cursor-pointer flex items-center gap-6 hover:bg-gray-50 p-2 rounded-2xl transition-colors">
-                            <div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-extrabold text-white shrink-0 shadow-md transition-transform group-hover:scale-110 ${pct > 0 ? theme.main : 'bg-gray-200 text-gray-400'}">
-                                ${idx}
-                            </div>
-                            <div class="flex-1">
-                                <div class="flex justify-between items-end mb-2">
-                                    <h4 class="font-extrabold text-gray-700 text-lg leading-tight group-hover:text-black">${unitName}</h4>
-                                    <span class="text-sm font-extrabold ${pct > 0 ? theme.text : 'text-gray-400'}">${pct}%</span>
-                                </div>
-                                <div class="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
-                                    <div class="h-full bg-gradient-to-r ${theme.gradient} transition-all duration-1000" style="width: ${pct}%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                    const done = lessons.filter(l => this.user.completedLessons.includes(l)).length;
+                    const pct = total > 0 ? Math.round((done/total)*100) : 0;
+                    html += `<div onclick="app.navigate('path', {level: '${l}', unit: '${unitName}'})" class="group cursor-pointer flex items-center gap-6 hover:bg-gray-50 p-2 rounded-2xl transition-colors"><div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-extrabold text-white shrink-0 shadow-md transition-transform group-hover:scale-110 ${pct>0?theme.main:'bg-gray-200 text-gray-400'}">${idx}</div><div class="flex-1"><div class="flex justify-between items-end mb-2"><h4 class="font-extrabold text-gray-700 text-lg leading-tight group-hover:text-black">${unitName}</h4><span class="text-sm font-extrabold ${pct>0?theme.text:'text-gray-400'}">${pct}%</span></div><div class="h-4 w-full bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r ${theme.gradient} transition-all duration-1000" style="width: ${pct}%"></div></div></div></div>`;
                     idx++;
-                }
-                container.innerHTML = html + `</div></div>`;
+                 }
+                 c.innerHTML = html + `</div></div>`;
             },
 
-            renderPath(container, { level, unit }) {
-                const theme = LEVEL_THEMES[level] || LEVEL_THEMES["6º Ano"];
-                const lessons = CURRICULO[level][unit] || [];
-                const user = this.auth.currentUser;
-
-                let html = `
-                    <div class="flex flex-col items-center pt-8 w-full animate-fade-in pb-20 max-w-xl mx-auto">
-                        <div class="${theme.light} ${theme.text} text-sm font-extrabold px-6 py-2 rounded-2xl mb-4 tracking-wide">${level.toUpperCase()}</div>
-                        <h2 class="text-2xl md:text-3xl font-extrabold text-gray-700 text-center mb-2 leading-tight">${unit}</h2>
-                        <p class="text-gray-400 font-bold text-base mb-12">Trilha de Aprendizagem</p>
-                        <div class="relative w-full flex flex-col items-center">
-                            <div class="absolute top-0 bottom-10 left-1/2 w-3 bg-gray-200 -translate-x-1/2 rounded-full -z-10"></div>
-                `;
-
-                lessons.forEach((lesson, i) => {
-                    const isCompleted = user.completedLessons.includes(lesson);
-                    const isUnlocked = i === 0 || user.completedLessons.includes(lessons[i - 1]);
-                    const offset = i % 2 === 0 ? '-translate-x-8' : 'translate-x-8';
-
-                    let btnClass, icon;
-                    if (isCompleted) {
-                        btnClass = 'bg-[#ffc800] border-[#e5b400] text-white';
-                        icon = '<i class="fas fa-check text-3xl"></i>';
-                    } else if (isUnlocked) {
-                        btnClass = `${theme.main} ${theme.borderDark} text-white ring-8 ${theme.ring}`;
-                        icon = '<i class="fas fa-star text-2xl"></i>';
-                    } else {
-                        btnClass = 'bg-gray-200 border-gray-300 text-gray-400';
-                        icon = '<i class="fas fa-lock text-2xl"></i>';
-                    }
-
-                    const action = isUnlocked ? `onclick="app.navigate('lesson', '${lesson}')"` : `onclick="alert('Complete a lição anterior!')"`;
-
-                    html += `
-                        <div class="flex items-center justify-center w-full mb-10 relative">
-                            <div class="relative group transition-transform ${offset}">
-                                <div class="absolute top-1/2 -translate-y-1/2 ${i % 2 === 0 ? 'left-24 text-left' : 'right-24 text-right'} w-48 p-3 rounded-xl border-2 bg-white z-20 shadow-sm transition-all ${isUnlocked ? `${theme.border} scale-105` : 'border-gray-200 opacity-60'}">
-                                    <h4 class="font-extrabold text-gray-700 text-sm leading-snug">${lesson}</h4>
-                                </div>
-                                <button ${action} class="w-20 h-20 rounded-full border-b-[6px] flex items-center justify-center transition-all active:scale-95 active:border-b-0 z-10 relative ${btnClass}">
-                                    ${icon}
-                                </button>
-                            </div>
-                        </div>
-                    `;
+            renderPath(c, d) {
+                const theme = LEVEL_THEMES[d.level];
+                const lessons = CURRICULO[d.level][d.unit] || [];
+                let html = `<div class="flex flex-col items-center pt-8 w-full animate-fade-in pb-20 max-w-xl mx-auto"><div class="${theme.light} ${theme.text} text-sm font-extrabold px-6 py-2 rounded-2xl mb-4 tracking-wide">${d.level.toUpperCase()}</div><h2 class="text-2xl md:text-3xl font-extrabold text-gray-700 text-center mb-2 leading-tight">${d.unit}</h2><p class="text-gray-400 font-bold text-base mb-12">Trilha de Aprendizagem</p><div class="relative w-full flex flex-col items-center"><div class="absolute top-0 bottom-10 left-1/2 w-3 bg-gray-200 -translate-x-1/2 rounded-full -z-10"></div>`;
+                lessons.forEach((l,i)=>{
+                    const isCompleted = this.user.completedLessons.includes(l);
+                    const isUnlocked = i===0 || this.user.completedLessons.includes(lessons[i-1]);
+                    const offset = i%2===0?'-translate-x-8':'translate-x-8';
+                    let btnClass, icon, action;
+                    if(isCompleted){ btnClass='bg-[#ffc800] border-[#e5b400] text-white'; icon='<i class="fas fa-check text-3xl"></i>'; action=`onclick="app.navigate('lesson','${l}')"`;}
+                    else if(isUnlocked){ btnClass=`${theme.main} ${theme.borderDark} text-white ring-8 ${theme.ring}`; icon='<i class="fas fa-star text-2xl"></i>'; action=`onclick="app.navigate('lesson','${l}')"`;}
+                    else{ btnClass='bg-gray-200 border-gray-300 text-gray-400'; icon='<i class="fas fa-lock text-2xl"></i>'; action=`onclick="alert('Complete a lição anterior!')"`;}
+                    html += `<div class="flex items-center justify-center w-full mb-10 relative"><div class="relative group transition-transform ${offset}"><div class="absolute top-1/2 -translate-y-1/2 ${i%2===0?'left-24 text-left':'right-24 text-right'} w-48 p-3 rounded-xl border-2 bg-white z-20 shadow-sm transition-all ${isUnlocked?`${theme.border} scale-105`:'border-gray-200 opacity-60'}"><h4 class="font-extrabold text-gray-700 text-sm leading-snug">${l}</h4></div><button ${action} class="w-20 h-20 rounded-full border-b-[6px] flex items-center justify-center transition-all active:scale-95 active:border-b-0 z-10 relative ${btnClass}">${icon}</button></div></div>`;
                 });
-
-                container.innerHTML = html + `</div></div>`;
+                c.innerHTML = html + `</div></div>`;
             },
 
-            renderLesson(container, lessonName) {
-                const content = CONTEUDO_TEORIA[lessonName] || `<div class="text-center py-10 text-gray-400 font-bold">Conteúdo em desenvolvimento...</div>`;
-                const processedContent = this.parseContent(content);
-
-                container.innerHTML = `
-                    <div class="bg-white p-6 md:p-10 rounded-[2rem] shadow-card border-2 border-gray-100 animate-fade-in mb-20 max-w-3xl mx-auto">
-                        <div class="flex items-center gap-3 mb-8 border-b-2 border-gray-100 pb-6">
-                            <div class="w-12 h-12 bg-brand-green rounded-xl flex items-center justify-center text-white text-xl shadow-sm">
-                                <i class="fas fa-book"></i>
-                            </div>
-                            <h1 class="text-2xl md:text-3xl font-black text-gray-700 leading-tight">${lessonName}</h1>
-                        </div>
-                        <div id="lesson-body" class="lesson-content text-gray-700">${processedContent}</div>
-                        <div class="mt-12 pt-8 border-t-2 border-gray-100">
-                            <button onclick="app.completeLesson('${lessonName}')" class="w-full bg-brand-green hover:bg-brand-greenDark text-white font-extrabold text-lg py-4 rounded-2xl shadow-btn btn-game uppercase tracking-widest transition-colors flex items-center justify-center gap-3">
-                                <i class="fas fa-check-circle"></i> Concluir Lição
-                            </button>
-                        </div>
-                    </div>
-                `;
-
-                if (window.renderMathInElement) {
-                    renderMathInElement(document.getElementById('lesson-body'), {
-                        delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }]
-                    });
-                }
+           renderLesson(c, n) {
+                const content = CONTEUDO_TEORIA[n] || `<div class="text-center py-10 text-gray-400 font-bold">Conteúdo em desenvolvimento...</div>`;
+                c.innerHTML = `<div class="bg-white p-6 md:p-10 rounded-[2rem] shadow-card border-2 border-gray-100 animate-fade-in mb-20 max-w-3xl mx-auto"><div class="flex items-center gap-3 mb-8 border-b-2 border-gray-100 pb-6"><div class="w-12 h-12 bg-brand-green rounded-xl flex items-center justify-center text-white text-xl shadow-sm"><i class="fas fa-book"></i></div><h1 class="text-2xl md:text-3xl font-black text-gray-700 leading-tight">${n}</h1></div><div id="lesson-body" class="lesson-content text-gray-700">${this.parseContent(content)}</div><div class="mt-12 pt-8 border-t-2 border-gray-100"><button onclick="app.saveProgress(50,'${n}');app.goBack()" class="w-full bg-brand-green hover:bg-brand-greenDark text-white font-extrabold text-lg py-4 rounded-2xl shadow-btn btn-game uppercase tracking-widest transition-colors flex items-center justify-center gap-3"><i class="fas fa-check-circle"></i> Concluir Lição</button></div></div>`;
+                if(window.renderMathInElement) renderMathInElement(document.getElementById('lesson-body'),{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]});
                 this.activateWidgets();
             },
 
-            parseContent(text) {
-                let processed = text.replace(/\n/g, '<br>');
-                processed = processed.replace(/\[WIDGET:(.*?)\]/g, (m, name) => `<div class="widget-placeholder w-full my-8" data-widget="${name.trim()}"></div>`);
-                return processed;
+            parseContent(t){ 
+                let p=t.replace(/\n/g,'<br>');
+                p=p.replace(/\[WIDGET:(.*?)\]/g,(m,n)=>`<div class="widget-placeholder w-full my-8" data-widget="${n.trim()}"></div>`);
+                return p; 
             },
 
-            activateWidgets() {
-                document.querySelectorAll('.widget-placeholder').forEach(div => {
-                    const name = div.dataset.widget;
-                    if (this.widgets[name]) this.widgets[name](div);
-                    else div.innerHTML = `<div class="bg-gray-100 rounded-2xl p-8 text-center border-2 border-dashed border-gray-300 text-gray-400 font-bold">Widget: ${name}</div>`;
+            activateWidgets(){
+                document.querySelectorAll('.widget-placeholder').forEach(d=>{
+                    const n=d.dataset.widget;
+                    if(this.widgets[n]) this.widgets[n](d);
+                    else d.innerHTML=`<div class="bg-gray-100 rounded-2xl p-8 text-center border-2 border-dashed border-gray-300 text-gray-400 font-bold">Widget: ${n}</div>`;
                 });
             },
 
