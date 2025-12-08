@@ -9036,7 +9036,7 @@ Racional é todo número que pode ser escrito como uma <strong>fração</strong>
             <p>São os prismas mais famosos. O Cubo é um paralelepípedo onde $a=b=c$.</p>
             <p><strong>Diagonal do Cubo:</strong> Imagine uma linha atravessando de um canto inferior até o canto superior oposto.</p>
             <div class="text-center font-mono font-bold bg-yellow-50 p-2 rounded text-brand-orange my-2">
-                D = a$\\sqrt{3}$
+                D = a $\\sqrt{3}$
             </div>
         `,
 
@@ -9618,6 +9618,7 @@ Racional é todo número que pode ser escrito como uma <strong>fração</strong>
                 if (view === "login") this.renderLogin(container);
                 else if (view === "home") this.renderHome(container);
                 else if (view === "levels") this.renderLevels(container);
+                else if (view === "settings") this.renderSettings(container);
                 else if (view === "units") this.renderUnits(container, data);
                 else if (view === "path") this.renderPath(container, data);
                 else if (view === "lesson") this.renderLesson(container, data);
@@ -9632,7 +9633,6 @@ Racional é todo número que pode ser escrito como uma <strong>fração</strong>
             },
 
             renderLogin(container) {
-                // CORREÇÃO PRINCIPAL: onclick="app.loginGoogle()" em vez de app.auth.loginGoogle()
                 container.innerHTML = `
 <div class="flex flex-col items-center justify-center min-h-[90vh] animate-fade-in px-4 py-8">
 <div class="mb-8 text-center">
@@ -9738,6 +9738,193 @@ ENTRAR
                 };
             },
 
+            // configurações
+
+
+
+
+
+renderSettings(container) {
+const user = this.user || this.auth.currentUser;
+
+const u = this.user;
+                const avatar = u.photo
+                    ? `<img src="${u.photo}" class="w-full h-full object-cover">`
+                    : this.isGuest
+                        ? `<i class="fas fa-user-astronaut text-5xl text-white"></i>`
+                        : `<span class="text-6xl font-black text-white">${u.name[0]}</span>`;
+
+        if (!user) return this.renderLogin(target);
+        container.innerHTML = `
+            <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
+                <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-fade-in">
+                    
+                    <div class="bg-brand-blue p-6 text-center relative">
+                        <button onclick="app.navigate('home')" class="absolute left-4 top-4 text-white hover:text-blue-200 transition-transform hover:scale-110">
+                            <i class="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        
+                        <h2 class="text-2xl font-black text-white uppercase tracking-wider">Meu Perfil</h2>
+
+                            
+                         <div class="w-20 h-20 rounded-full bg-brand-green border-4 border-white shadow-xl mb-6 flex items-center justify-center relative overflow-hidden">
+${avatar}
+
+
+                        </div>
+                        <p class="text-white font-bold mt-2">${user.displayName || "Estudante"}</p>
+                    </div>
+
+                    <div class="p-8 space-y-6">
+                        <div id="settings-loader" class="text-center text-gray-400 text-xs font-bold py-2">
+                            <i class="fas fa-circle-notch fa-spin"></i> Carregando dados...
+                        </div>
+
+<div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Nome Completo *</label>
+                    <input type="text" id="set-name" 
+                        class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+                        value="${u.fullName || ''}" 
+                        placeholder="Ex: João da Silva">
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Matrícula</label>
+                    <input type="text" id="set-mat" 
+                        class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+                        value="${u.matricula || ''}" 
+                        placeholder="Ex: 2025001">
+                </div>
+
+                        <div id="settings-content" class="space-y-6 opacity-50 pointer-events-none transition-opacity duration-300">
+                            <div>
+                                <label class="block text-gray-400 text-sm font-bold mb-2">Ano Letivo</label>
+                                <select id="set-year" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors">
+                                    <option value="2030">2030</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2026">2026</option>
+                                    <option value="2025">2025</option>
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-gray-400 text-sm font-bold mb-2">Série</label>
+                                    <select id="set-grade" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors">
+                                        <option value="6">6º Ano</option>
+                                        <option value="7">7º Ano</option>
+                                        <option value="8">8º Ano</option>
+                                        <option value="9">9º Ano</option>
+                                        <option value="1EM">1º EM</option>
+                                        <option value="2EM">2º EM</option>
+                                        <option value="3EM">3º EM</option>
+                                        <option value="TREINEIRO">Treineiro</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 text-sm font-bold mb-2">Turma</label>
+                                    <select id="set-class" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors">
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                        <option value="D">D</option>
+                                        <option value="E">E</option>
+                                        <option value="F">F</option>
+                                        <option value="G">G</option>
+                                        <option value="H">H</option>
+                                        <option value="I">I</option>
+                                        <option value="J">J</option>
+                                        <option value="K">K</option>
+                                        <option value="L">L</option>
+                                        <option value="M">M</option>
+                                        <option value="N">N</option>
+                                        <option value="O">O</option>
+                                        <option value="P">P</option>
+                                        <option value="Q">Q</option>
+                                        <option value="R">R</option>
+                                        <option value="S">S</option>
+                                        <option value="T">T</option>
+                                        <option value="U">U</option>
+                                        <option value="V">V</option>
+                                        <option value="W">W</option>
+                                        <option value="X">X</option>
+                                        <option value="Y">Y</option>
+                                        <option value="Z">Z</option>
+                                        <option value="TREINEIRO">Treineiro</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button id="btn-save-profile" class="w-full bg-brand-green text-white font-bold py-4 rounded-xl shadow-btn active:scale-95 transition-all">
+                                SALVAR DADOS
+                            </button>
+
+                            <hr>
+
+                            <button id="btn-reset-progress" class="w-full bg-white border-2 border-red-200 text-red-500 font-bold py-3 rounded-xl hover:bg-red-50">
+                                RESETAR PROGRESSO
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Busca dados (Firebase)
+        const docRef = window.firebase.firestore().collection("users").doc(user.uid);
+        
+        docRef.get().then((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                if(document.getElementById('set-year')) {
+                    document.getElementById('set-name').value = data.name || "";
+                    document.getElementById('set-mat').value = data.matricula || "";
+                    document.getElementById('set-year').value = data.schoolYear || "2026";
+                    document.getElementById('set-grade').value = data.grade || "6";
+                    document.getElementById('set-class').value = data.schoolClass || "A";
+                }
+            }
+            if(document.getElementById('settings-loader')) {
+                document.getElementById('settings-loader').style.display = 'none';
+                document.getElementById('settings-content').classList.remove('opacity-50', 'pointer-events-none');
+            }
+        });
+
+        // Configura botões internos (Aqui o JavaScript funciona normal)
+        document.getElementById('btn-save-profile').onclick = function() {
+            const btn = this;
+            btn.innerText = "Salvando...";
+            const data = {
+                name: document.getElementById('set-name').value,
+                matricula: document.getElementById('set-mat').value,
+                schoolYear: document.getElementById('set-year').value,
+                grade: document.getElementById('set-grade').value,
+                schoolClass: document.getElementById('set-class').value
+            };
+            docRef.update(data).then(() => {
+                btn.innerText = 'Salvo!';
+                setTimeout(() => app.renderHome(container), 1000);
+            });
+        };
+
+        document.getElementById('btn-reset-progress').onclick = () => {
+            if(confirm("Tem certeza? Vai zerar tudo.")) {
+                docRef.update({ xp: 0, completedLessons: [] }).then(() => {
+                    alert("Resetado.");
+                    app.renderHome(container);
+                });
+            }
+        };
+    },
+
+
+
+
+
+            // fim das configurações
+
             renderHome(container) {
                 const u = this.user;
                 const avatar = u.photo
@@ -9752,6 +9939,17 @@ ENTRAR
                 container.innerHTML = `
 <div class="flex flex-col items-center justify-center pt-10 animate-fade-in w-full">
 <div class="flex flex-col items-center mb-12">
+    
+    
+    
+
+
+
+
+
+
+
+
 <div class="w-36 h-36 rounded-full bg-brand-green border-4 border-white shadow-xl mb-6 flex items-center justify-center relative overflow-hidden">
 ${avatar}
 </div>
@@ -9781,6 +9979,12 @@ ${guestBadge}
 <h3 class="text-2xl font-extrabold text-gray-700">Arena de Prática</h3>
 <p class="text-gray-400 font-bold text-sm">Desafios e Quiz</p>
 </div>
+</div>
+</div>
+
+<div onclick="app.navigate('settings')" class="group cursor-pointer border-2 border-gray-100 rounded-3xl p-6 flex gap-6 hover:border-brand-purple hover:bg-purple-30 transition-all shadow-card active:translate-y-1 ">
+<div>
+<h3 class="text-2xl font-extrabold group-hover:text-brand-purple transition-colors">Configurar Turma</h3>
 </div>
 </div>
 
@@ -22877,87 +23081,83 @@ Aumente o lado para ver o que acontece!
                     update();
                 },
 
+
                 interactive_area_growth_quiz(container) {
                     const questions = [
-                        {
-                            q: "Se o lado dobra (2x), a área aumenta...",
-                            opts: ["2x", "4x", "6x", "8x"],
-                            ans: 1,
-                        }, // 4x
-                        {
-                            q: "Se o lado triplica (3x), a área aumenta...",
-                            opts: ["3x", "6x", "9x", "12x"],
-                            ans: 2,
-                        }, // 9x
-                        {
-                            q: "Um quadrado de lado 10 tem área 100. Um de lado 20 terá...",
-                            opts: ["200", "300", "400", "1000"],
-                            ans: 2,
-                        }, // 400
-                        {
-                            q: "Para a área quadruplicar (4x), o lado deve...",
-                            opts: ["Dobrar", "Triplicar", "Quadruplicar", "Ficar igual"],
-                            ans: 0,
-                        }, // Dobrar
+                        { q: "Se o lado dobra (2x), a área aumenta...", opts: ["2x", "4x", "6x", "8x"], ans: 1 },
+                        { q: "Se o lado triplica (3x), a área aumenta...", opts: ["3x", "6x", "9x", "12x"], ans: 2 },
+                        { q: "Um quadrado de lado 10 tem área 100. Um de lado 20 terá...", opts: ["200", "300", "400", "1000"], ans: 2 },
+                        { q: "Para a área quadruplicar (4x), o lado deve...", opts: ["Dobrar", "Triplicar", "Quadruplicar", "Ficar igual"], ans: 0 }
                     ];
 
                     let currentQ = 0;
                     let score = 0;
 
                     container.innerHTML = `
-<div class="bg-white border-2 border-brand-gray rounded-xl p-6 flex flex-col items-center w-full shadow-sm font-sans select-none relative overflow-hidden">
+    <div class="bg-white border-2 border-brand-gray rounded-xl p-6 flex flex-col items-center w-full shadow-sm font-sans select-none relative overflow-hidden">
+        
+        <div class="flex justify-between w-full items-center mb-6 border-b-2 border-gray-100 pb-2">
+            <h3 class="text-brand-red font-black uppercase text-xs tracking-widest"><i class="fas fa-fire"></i> Quiz Explosivo</h3>
+            <div class="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-black shadow-sm">Questão <span id="q-num">1</span>/4</div>
+        </div>
 
-<div class="flex justify-between w-full items-center mb-6 border-b-2 border-gray-100 pb-2">
-<h3 class="text-brand-red font-black uppercase text-xs tracking-widest"><i class="fas fa-fire"></i> Quiz Explosivo</h3>
-<div class="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-black shadow-sm">Questão <span id="q-num">1</span>/4</div>
-</div>
+        <div class="mb-8 text-center w-full">
+            <p class="text-xl md:text-2xl font-black text-brand-text leading-tight" id="q-text">...</p>
+        </div>
 
-<div class="mb-8 text-center w-full">
-<p class="text-xl md:text-2xl font-black text-brand-text leading-tight" id="q-text">...</p>
-</div>
+        <div class="grid grid-cols-2 gap-4 w-full max-w-md" id="opts-container">
+        </div>
 
-<div class="grid grid-cols-2 gap-4 w-full max-w-md" id="opts-container">
-</div>
+        <div id="feedback-area" class="hidden mt-6 text-center animate-pop-in">
+            <div class="text-4xl mb-2" id="fb-icon"></div>
+            <p class="font-bold text-lg" id="fb-msg"></p>
+            <button id="btn-next" class="mt-4 bg-brand-blue text-white font-bold py-2 px-8 rounded-xl shadow-btn active:scale-95">Próximo</button>
+        </div>
 
-<div id="feedback-area" class="hidden mt-6 text-center animate-pop-in">
-<div class="text-4xl mb-2" id="fb-icon"></div>
-<p class="font-bold text-lg" id="fb-msg"></p>
-<button id="btn-next" class="mt-4 bg-brand-blue text-white font-bold py-2 px-8 rounded-xl shadow-btn active:scale-95">Próximo</button>
-</div>
+    </div>
+    `;
 
-</div>
-`;
+                    const qText = container.querySelector('#q-text');
+                    const qNum = container.querySelector('#q-num');
+                    const optsContainer = container.querySelector('#opts-container');
+                    const feedbackArea = container.querySelector('#feedback-area');
+                    const fbIcon = container.querySelector('#fb-icon');
+                    const fbMsg = container.querySelector('#fb-msg');
+                    const btnNext = container.querySelector('#btn-next');
 
-                    const qText = container.querySelector("#q-text");
-                    const qNum = container.querySelector("#q-num");
-                    const optsContainer = container.querySelector("#opts-container");
-                    const feedbackArea = container.querySelector("#feedback-area");
-                    const fbIcon = container.querySelector("#fb-icon");
-                    const fbMsg = container.querySelector("#fb-msg");
-                    const btnNext = container.querySelector("#btn-next");
+                    // Função Interna de Reset
+                    const restartGame = () => {
+                        currentQ = 0;
+                        score = 0;
+                        loadQuestion();
+                    };
 
                     const loadQuestion = () => {
                         if (currentQ >= questions.length) {
                             qText.innerText = "Fim de Jogo!";
                             optsContainer.innerHTML = "";
                             feedbackArea.innerHTML = `
-<div class="text-5xl mb-2">🏆</div>
-<p class="text-gray-500 font-bold">Você acertou ${score} de ${questions.length}!</p>
-`;
-                            feedbackArea.classList.remove("hidden");
+                <div class="text-5xl mb-2">🏆</div>
+                <p class="text-gray-500 font-bold">Você acertou ${score} de ${questions.length}!</p>
+                <button id="btn-restart-quiz" class="mt-4 bg-gray-200 text-gray-700 font-bold py-2 px-8 rounded-xl hover:bg-gray-300">Jogar Novamente</button>
+            `;
+                            feedbackArea.classList.remove('hidden');
+
+                            // Re-bind do botão de restart gerado dinamicamente
+                            const btnRestart = container.querySelector('#btn-restart-quiz');
+                            btnRestart.onclick = restartGame;
                             return;
                         }
 
                         const q = questions[currentQ];
                         qText.innerText = q.q;
                         qNum.innerText = currentQ + 1;
-                        feedbackArea.classList.add("hidden");
+                        feedbackArea.classList.add('hidden');
 
-                        optsContainer.innerHTML = "";
+                        optsContainer.innerHTML = '';
                         q.opts.forEach((opt, i) => {
-                            const btn = document.createElement("button");
-                            btn.className =
-                                "bg-white border-b-4 border-gray-200 text-gray-600 font-bold text-lg py-4 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-brand-blue transition-all active:border-b-0 active:translate-y-1";
+                            const btn = document.createElement('button');
+                            btn.className = "bg-white border-b-4 border-gray-200 text-gray-600 font-bold text-lg py-4 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-brand-blue transition-all active:border-b-0 active:translate-y-1";
                             btn.innerText = opt;
                             btn.onclick = () => check(i, btn);
                             optsContainer.appendChild(btn);
@@ -22968,38 +23168,28 @@ Aumente o lado para ver o que acontece!
                         const q = questions[currentQ];
                         const isCorrect = selected === q.ans;
 
-                        // Trava botões
-                        Array.from(optsContainer.children).forEach(
-                            (b) => (b.disabled = true)
-                        );
+                        // Disable all
+                        Array.from(optsContainer.children).forEach(b => b.disabled = true);
 
                         if (isCorrect) {
                             score++;
-                            btn.classList.replace("border-gray-200", "border-green-600");
-                            btn.classList.add("bg-brand-green", "text-white");
+                            btn.classList.replace('border-gray-200', 'border-green-600');
+                            btn.classList.add('bg-brand-green', 'text-white');
                             fbIcon.innerText = "🎉";
                             fbMsg.innerText = "Isso aí! Regra do quadrado.";
                             fbMsg.className = "font-bold text-lg text-brand-green";
                         } else {
-                            btn.classList.replace("border-gray-200", "border-red-600");
-                            btn.classList.add(
-                                "bg-brand-red",
-                                "text-white",
-                                "animate-shake"
-                            );
+                            btn.classList.replace('border-gray-200', 'border-red-600');
+                            btn.classList.add('bg-brand-red', 'text-white', 'animate-shake');
                             fbIcon.innerText = "📉";
                             fbMsg.innerText = "Ops! Lembre-se de elevar ao quadrado.";
                             fbMsg.className = "font-bold text-lg text-brand-red";
 
-                            // Mostra a correta
-                            optsContainer.children[q.ans].classList.add(
-                                "bg-green-100",
-                                "text-green-800",
-                                "border-green-200"
-                            );
+                            // Show correct
+                            optsContainer.children[q.ans].classList.add('bg-green-100', 'text-green-800', 'border-green-200');
                         }
 
-                        feedbackArea.classList.remove("hidden");
+                        feedbackArea.classList.remove('hidden');
                     };
 
                     btnNext.onclick = () => {
@@ -23009,6 +23199,7 @@ Aumente o lado para ver o que acontece!
 
                     loadQuestion();
                 },
+
 
                 interactive_parity_visualizer(container) {
                     let currentNum = 7;
@@ -24626,106 +24817,104 @@ As retas não se tocam. A distância é sempre a mesma.
                 interactive_city_challenge(container) {
                     // Dados do Jogo
                     const questions = [
-                        {
-                            q: "Selecione uma rua <strong>PARALELA</strong> à Rua A (Azul).",
-                            target: "rua-c",
-                            hint: "Paralelas são como trilhos de trem: nunca se cruzam, mantendo a mesma distância.",
-                        },
-                        {
-                            q: "Selecione uma rua <strong>PERPENDICULAR</strong> à Rua A (Azul).",
-                            target: "rua-b",
-                            hint: "Perpendiculares formam uma cruz perfeita (ângulo de 90° ou 'canto quadrado').",
-                        },
-                        {
-                            q: "Selecione uma rua <strong>CONCORRENTE</strong> (mas não perpendicular) à Rua A.",
-                            target: "rua-d",
-                            hint: "Concorrentes se cruzam, mas se não formam 90°, elas cortam na diagonal.",
-                        },
+                        { q: "Selecione uma rua <strong>PARALELA</strong> à Rua A (Azul).", target: "rua-c", hint: "Paralelas nunca se cruzam." },
+                        { q: "Selecione uma rua <strong>PERPENDICULAR</strong> à Rua A (Azul).", target: "rua-b", hint: "Perpendiculares formam 90°." },
+                        { q: "Selecione uma rua <strong>CONCORRENTE</strong> (mas não perpendicular).", target: "rua-d", hint: "Concorrentes se cruzam em qualquer ângulo." },
                     ];
 
                     let currentQ = 0;
                     let score = 0;
 
                     container.innerHTML = `
-<div class="bg-gray-100 border-4 border-gray-300 rounded-xl p-4 flex flex-col items-center w-full shadow-lg font-sans select-none relative overflow-hidden">
+    <div class="bg-gray-100 border-4 border-gray-300 rounded-xl p-4 flex flex-col items-center w-full shadow-lg font-sans select-none relative overflow-hidden">
+        
+        <div class="flex justify-between w-full items-center mb-4 bg-white p-3 rounded-lg shadow-sm z-10">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">👷</span>
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase">Missão</span>
+                    <span class="text-xs font-bold text-gray-800" id="mission-num">1/3</span>
+                </div>
+            </div>
+            <div class="bg-brand-yellow text-yellow-900 px-3 py-1 rounded-full text-xs font-black shadow-sm">Pts: <span id="city-score">0</span></div>
+        </div>
 
-<div class="flex justify-between w-full items-center mb-4 bg-white p-3 rounded-lg shadow-sm z-10">
-<div class="flex items-center gap-2">
-<span class="text-2xl">👷</span>
-<div class="flex flex-col">
-<span class="text-[10px] font-bold text-gray-400 uppercase">Missão</span>
-<span class="text-xs font-bold text-gray-800" id="mission-num">1/3</span>
-</div>
-</div>
-<div class="bg-brand-yellow text-yellow-900 px-3 py-1 rounded-full text-xs font-black shadow-sm">Pts: <span id="city-score">0</span></div>
-</div>
+        <div class="w-full text-center mb-4 min-h-[40px] bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+            <p class="text-sm text-gray-700" id="question-text">Carregando...</p>
+        </div>
 
-<div class="w-full text-center mb-4 min-h-[40px] bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-<p class="text-sm text-gray-700" id="question-text">Carregando...</p>
-</div>
+        <div class="relative w-full max-w-sm aspect-square bg-[#e5e5f7] rounded-xl border-4 border-gray-400 overflow-hidden shadow-inner cursor-pointer" id="map-area">
+            <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#444cf7 1px, transparent 1px); background-size: 20px 20px;"></div>
+            
+            <svg class="absolute inset-0 w-full h-full z-0" viewBox="0 0 300 300">
+                <rect x="0" y="135" width="300" height="30" fill="#1CB0F6" opacity="0.8" />
+                <text x="10" y="155" font-family="sans-serif" font-size="12" font-weight="bold" fill="white">RUA A (REF)</text>
 
-<div class="relative w-full max-w-sm aspect-square bg-[#e5e5f7] rounded-xl border-4 border-gray-400 overflow-hidden shadow-inner cursor-pointer" id="map-area">
+                <g class="street-group cursor-pointer hover:opacity-80 transition-opacity" data-id="rua-c">
+                    <rect x="0" y="220" width="300" height="25" fill="#6B7280" />
+                    <line x1="0" y1="232.5" x2="300" y2="232.5" stroke="white" stroke-dasharray="10,10" stroke-width="2" />
+                    <text x="10" y="237" font-family="sans-serif" font-size="10" font-weight="bold" fill="white">RUA C</text>
+                    <rect x="0" y="210" width="300" height="45" fill="transparent" />
+                </g>
 
-<div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#444cf7 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <g class="street-group cursor-pointer hover:opacity-80 transition-opacity" data-id="rua-b">
+                    <rect x="100" y="0" width="25" height="300" fill="#6B7280" />
+                    <line x1="112.5" y1="0" x2="112.5" y2="300" stroke="white" stroke-dasharray="10,10" stroke-width="2" />
+                    <text x="103" y="20" font-family="sans-serif" font-size="10" font-weight="bold" fill="white" transform="rotate(90, 103, 20)">RUA B</text>
+                    <rect x="90" y="0" width="45" height="300" fill="transparent" />
+                </g>
 
-<svg class="absolute inset-0 w-full h-full z-0" viewBox="0 0 300 300">
-<rect x="0" y="135" width="300" height="30" fill="#1CB0F6" opacity="0.8" />
-<text x="10" y="155" font-family="sans-serif" font-size="12" font-weight="bold" fill="white">RUA A (REF)</text>
+                <g class="street-group cursor-pointer hover:opacity-80 transition-opacity" data-id="rua-d">
+                    <line x1="200" y="0" x2="300" y2="300" stroke="#6B7280" stroke-width="25" />
+                    <line x1="200" y="0" x2="300" y2="300" stroke="white" stroke-dasharray="10,10" stroke-width="2" />
+                    <text x="240" y="150" font-family="sans-serif" font-size="10" font-weight="bold" fill="white" transform="rotate(72, 240, 150)">RUA D</text>
+                    <line x1="200" y1="0" x2="300" y2="300" stroke="transparent" stroke-width="50" />
+                </g>
+            </svg>
 
-<g class="street-group cursor-pointer hover:opacity-80 transition-opacity" data-id="rua-c">
-<rect x="0" y="220" width="300" height="25" fill="#6B7280" />
-<line x1="0" y1="232.5" x2="300" y2="232.5" stroke="white" stroke-dasharray="10,10" stroke-width="2" />
-<text x="10" y="237" font-family="sans-serif" font-size="10" font-weight="bold" fill="white">RUA C</text>
-<rect x="0" y="210" width="300" height="45" fill="transparent" />
-</g>
+            <div id="city-feedback" class="absolute inset-0 bg-white/95 hidden flex-col items-center justify-center z-30 animate-fade-in text-center p-4">
+                <div class="text-6xl mb-2" id="fb-icon"></div>
+                <h3 class="text-xl font-black text-brand-text mb-1" id="fb-title"></h3>
+                <p class="text-sm text-gray-600 mb-4" id="fb-msg"></p>
+                <button id="btn-next-city" class="bg-brand-blue text-white font-bold py-3 px-8 rounded-full shadow-lg active:scale-95 transition-all">Continuar</button>
+            </div>
+        </div>
+    </div>
+    `;
 
-<g class="street-group cursor-pointer hover:opacity-80 transition-opacity" data-id="rua-b">
-<rect x="100" y="0" width="25" height="300" fill="#6B7280" />
-<line x1="112.5" y1="0" x2="112.5" y2="300" stroke="white" stroke-dasharray="10,10" stroke-width="2" />
-<text x="103" y="20" font-family="sans-serif" font-size="10" font-weight="bold" fill="white" transform="rotate(90, 103, 20)">RUA B</text>
-<rect x="90" y="0" width="45" height="300" fill="transparent" />
-</g>
+                    const qText = container.querySelector('#question-text');
+                    const scoreEl = container.querySelector('#city-score');
+                    const missionNum = container.querySelector('#mission-num');
+                    const streets = container.querySelectorAll('.street-group');
+                    const feedbackLayer = container.querySelector('#city-feedback');
+                    const fbIcon = container.querySelector('#fb-icon');
+                    const fbTitle = container.querySelector('#fb-title');
+                    const fbMsg = container.querySelector('#fb-msg');
+                    const btnNext = container.querySelector('#btn-next-city');
 
-<g class="street-group cursor-pointer hover:opacity-80 transition-opacity" data-id="rua-d">
-<line x1="200" y1="0" x2="300" y2="300" stroke="#6B7280" stroke-width="25" />
-<line x1="200" y1="0" x2="300" y2="300" stroke="white" stroke-dasharray="10,10" stroke-width="2" />
-<text x="240" y="150" font-family="sans-serif" font-size="10" font-weight="bold" fill="white" transform="rotate(72, 240, 150)">RUA D</text>
-<line x1="200" y1="0" x2="300" y2="300" stroke="transparent" stroke-width="50" />
-</g>
-</svg>
-
-<div id="city-feedback" class="absolute inset-0 bg-white/95 hidden flex-col items-center justify-center z-30 animate-fade-in text-center p-4">
-<div class="text-6xl mb-2" id="fb-icon"></div>
-<h3 class="text-xl font-black text-brand-text mb-1" id="fb-title"></h3>
-<p class="text-sm text-gray-600 mb-4" id="fb-msg"></p>
-<button id="btn-next-city" class="bg-brand-blue text-white font-bold py-3 px-8 rounded-full shadow-lg active:scale-95 transition-all">Continuar</button>
-</div>
-
-</div>
-</div>
-`;
-
-                    const qText = container.querySelector("#question-text");
-                    const scoreEl = container.querySelector("#city-score");
-                    const missionNum = container.querySelector("#mission-num");
-                    const streets = container.querySelectorAll(".street-group");
-                    const feedbackLayer = container.querySelector("#city-feedback");
-                    const fbIcon = container.querySelector("#fb-icon");
-                    const fbTitle = container.querySelector("#fb-title");
-                    const fbMsg = container.querySelector("#fb-msg");
-                    const btnNext = container.querySelector("#btn-next-city");
+                    // Função de Reset Interna
+                    const resetGame = () => {
+                        currentQ = 0;
+                        score = 0;
+                        scoreEl.innerText = 0;
+                        loadLevel();
+                    };
 
                     const loadLevel = () => {
                         if (currentQ >= questions.length) {
-                            qText.innerHTML = `<span class="text-brand-green font-black">Cidade Construída!</span> Pontuação Final: ${score}`;
-                            feedbackLayer.innerHTML = `
-<div class="text-6xl mb-4">🏆</div>
-<h3 class="text-2xl font-black text-brand-blue">Engenheiro Chefe!</h3>
-<p class="text-gray-500 text-sm mt-2">Você dominou o trânsito de MathVille.</p>
-<button onclick="app.renderLesson(document.getElementById('main-container'), app.currentLessonName)" class="mt-6 bg-gray-200 text-gray-600 font-bold py-2 px-6 rounded-lg hover:bg-gray-300">Reiniciar</button>
-`;
-                            feedbackLayer.classList.remove("hidden");
-                            feedbackLayer.classList.add("flex");
+                            // Tela de Vitória
+                            qText.innerHTML = `<span class="text-brand-green font-black">Cidade Construída!</span>`;
+
+                            fbIcon.innerText = "🏆";
+                            fbTitle.innerText = "Engenheiro Chefe!";
+                            fbMsg.innerText = `Pontuação Final: ${score}`;
+
+                            btnNext.innerText = "Reiniciar Jogo";
+                            // Correção: Agora chama a função interna resetGame
+                            btnNext.onclick = resetGame;
+
+                            feedbackLayer.classList.remove('hidden');
+                            feedbackLayer.classList.add('flex');
                             return;
                         }
 
@@ -24733,37 +24922,40 @@ As retas não se tocam. A distância é sempre a mesma.
                         qText.innerHTML = q.q;
                         missionNum.innerText = `${currentQ + 1}/${questions.length}`;
 
-                        // Reset Cores (Volta para cinza #6B7280 e bordas normais)
-                        streets.forEach((s) => {
-                            const rect = s.querySelector("rect");
-                            const line = s.querySelector('line:not([stroke="white"])'); // Pega a linha grossa da rua D
-                            if (rect) rect.setAttribute("fill", "#6B7280");
-                            if (line) line.setAttribute("stroke", "#6B7280");
+                        // Reset Cores
+                        streets.forEach(s => {
+                            const rect = s.querySelector('rect');
+                            const line = s.querySelector('line:not([stroke="white"])');
+                            if (rect) rect.setAttribute('fill', '#6B7280');
+                            if (line) line.setAttribute('stroke', '#6B7280');
                         });
 
-                        feedbackLayer.classList.add("hidden");
-                        feedbackLayer.classList.remove("flex");
+                        feedbackLayer.classList.add('hidden');
+                        feedbackLayer.classList.remove('flex');
+
+                        // Restaura botão para modo "Continuar"
+                        btnNext.innerText = "Continuar";
+                        btnNext.onclick = nextLevel;
+                    };
+
+                    const nextLevel = () => {
+                        currentQ++;
+                        loadLevel();
                     };
 
                     const check = (selectedId) => {
                         const q = questions[currentQ];
                         const isCorrect = selectedId === q.target;
-                        const selectedEl = container.querySelector(
-                            `[data-id="${selectedId}"]`
-                        );
+                        const selectedEl = container.querySelector(`[data-id="${selectedId}"]`);
 
-                        // Elemento visual para colorir (Rect ou Line)
-                        const visualPart =
-                            selectedEl.querySelector("rect") ||
-                            selectedEl.querySelector('line:not([stroke="white"])');
+                        const visualPart = selectedEl.querySelector('rect') || selectedEl.querySelector('line:not([stroke="white"])');
 
                         if (isCorrect) {
                             score += 100;
                             scoreEl.innerText = score;
                             if (visualPart) {
-                                if (visualPart.tagName === "rect")
-                                    visualPart.setAttribute("fill", "#10B981"); // Verde
-                                else visualPart.setAttribute("stroke", "#10B981");
+                                if (visualPart.tagName === 'rect') visualPart.setAttribute('fill', '#10B981');
+                                else visualPart.setAttribute('stroke', '#10B981');
                             }
 
                             fbIcon.innerText = "✅";
@@ -24772,9 +24964,8 @@ As retas não se tocam. A distância é sempre a mesma.
                             fbMsg.innerText = "Essa é a rua correta.";
                         } else {
                             if (visualPart) {
-                                if (visualPart.tagName === "rect")
-                                    visualPart.setAttribute("fill", "#EF4444"); // Vermelho
-                                else visualPart.setAttribute("stroke", "#EF4444");
+                                if (visualPart.tagName === 'rect') visualPart.setAttribute('fill', '#EF4444');
+                                else visualPart.setAttribute('stroke', '#EF4444');
                             }
 
                             fbIcon.innerText = "🚧";
@@ -24783,22 +24974,15 @@ As retas não se tocam. A distância é sempre a mesma.
                             fbMsg.innerText = q.hint;
                         }
 
-                        feedbackLayer.classList.remove("hidden");
-                        feedbackLayer.classList.add("flex");
+                        feedbackLayer.classList.remove('hidden');
+                        feedbackLayer.classList.add('flex');
                     };
 
-                    streets.forEach((btn) => {
+                    streets.forEach(btn => {
                         btn.onclick = () => check(btn.dataset.id);
                     });
 
-                    btnNext.onclick = () => {
-                        const title = fbTitle.innerText;
-                        if (title.includes("Excelente")) {
-                            currentQ++;
-                        }
-                        loadLevel();
-                    };
-
+                    // Inicia
                     loadLevel();
                 },
 
@@ -35368,225 +35552,127 @@ ${[1, 2, 3, 4, 5, 6, 7, 8, 9]
 
                 interactive_bridge_builder(container) {
                     const levels = [
-                        {
-                            gapVal: 2,
-                            gapUnit: "km",
-                            correctVal: 2000,
-                            correctUnit: "m",
-                            wrong: [
-                                { v: 200, u: "m" },
-                                { v: 20, u: "km" },
-                                { v: 20000, u: "cm" },
-                            ],
-                        },
-                        {
-                            gapVal: 50,
-                            gapUnit: "cm",
-                            correctVal: 0.5,
-                            correctUnit: "m",
-                            wrong: [
-                                { v: 5, u: "m" },
-                                { v: 5000, u: "mm" },
-                                { v: 0.05, u: "km" },
-                            ],
-                        }, // 500mm é igual, vamos mudar o erro
-                        {
-                            gapVal: 1.5,
-                            gapUnit: "m",
-                            correctVal: 150,
-                            correctUnit: "cm",
-                            wrong: [
-                                { v: 15, u: "cm" },
-                                { v: 1500, u: "mm" },
-                                { v: 0.15, u: "dam" },
-                            ],
-                        }, // 1500mm tb é igual
-                        {
-                            gapVal: 300,
-                            gapUnit: "m",
-                            correctVal: 0.3,
-                            correctUnit: "km",
-                            wrong: [
-                                { v: 3, u: "km" },
-                                { v: 30, u: "hm" },
-                                { v: 3000, u: "dm" },
-                            ],
-                        },
+                        { gap: 100, unit: "cm", opts: ["1 m", "10 m", "100 mm"], ans: 0 }, // 100cm = 1m
+                        { gap: 2, unit: "km", opts: ["200 m", "2000 m", "20 m"], ans: 1 }, // 2km = 2000m
+                        { gap: 50, unit: "mm", opts: ["5 cm", "0,5 m", "50 cm"], ans: 0 }, // 50mm = 5cm
+                        { gap: 1.5, unit: "m", opts: ["15 cm", "150 cm", "1500 mm"], ans: 1 } // 1.5m = 150cm
                     ];
 
-                    // Ajuste nos níveis para garantir que as erradas sejam realmente erradas
-                    // Nivel 2: 50cm = 0.5m. Erradas: 5m, 50mm, 0.05km(50m)
-                    // Nivel 3: 1.5m = 150cm. Erradas: 15cm, 150mm, 15m
+                    let currentLevel = 0;
 
-                    let currentLvl = 0;
-                    let score = 0;
-
+                    // Criar estrutura básica apenas uma vez
                     container.innerHTML = `
-    <div class="bg-gray-900 border-4 border-gray-700 rounded-xl p-4 flex flex-col items-center w-full shadow-lg font-sans select-none relative overflow-hidden">
+    <div class="bg-blue-50 border-4 border-blue-300 rounded-xl p-6 flex flex-col items-center w-full shadow-lg font-sans select-none relative overflow-hidden">
+        <h3 class="text-brand-blue font-bold uppercase text-xs tracking-widest mb-4">Engenheiro da Ponte</h3>
         
-        <div class="flex justify-between w-full items-center mb-6 z-10">
-            <h3 class="font-black text-gray-400 uppercase text-xs tracking-widest"><i class="fas fa-hard-hat"></i> Engenharia Civil</h3>
-            <div class="bg-gray-700 px-3 py-1 rounded-full text-xs font-black text-brand-yellow">Pontos: <span id="bridge-score">0</span></div>
-        </div>
-
-        <div class="relative w-full h-40 bg-sky-300 rounded-xl border-b-8 border-green-700 overflow-hidden mb-6 z-0">
-            <div class="absolute top-4 left-10 text-4xl opacity-80 animate-pulse">☁️</div>
-            <div class="absolute top-8 right-20 text-3xl opacity-60">☁️</div>
-
-            <div class="absolute bottom-0 left-0 w-[20%] h-full bg-green-600 border-r-4 border-green-800 flex items-start justify-center pt-2">
-                <div class="text-2xl">🚗</div>
-            </div>
-
-            <div class="absolute bottom-0 right-0 w-[20%] h-full bg-green-600 border-l-4 border-green-800 flex items-center justify-center">
-                <div class="text-2xl">🏁</div>
-            </div>
-
-            <div class="absolute bottom-0 left-[20%] right-[20%] h-full flex flex-col items-center justify-end pb-2">
-                <div class="w-full border-b-4 border-dashed border-gray-500 h-1 absolute bottom-4"></div>
-                <span class="bg-white/80 px-2 py-1 rounded text-xs font-black text-gray-800 mb-6 backdrop-blur-sm shadow-sm" id="gap-label">
-                    Vão: ???
-                </span>
+        <div class="relative w-full h-40 bg-sky-100 border-b-4 border-sky-300 mb-6 overflow-hidden flex items-end justify-between px-4">
+            <div class="w-1/4 h-32 bg-stone-400 border-t-8 border-stone-600 rounded-t-lg relative z-10"></div>
+            
+            <div class="flex-1 h-32 relative flex flex-col justify-between items-center z-0">
+                <div class="absolute top-10 text-xs font-bold text-gray-500 bg-white/80 px-2 rounded">
+                    Vão: <span id="gap-val" class="text-brand-red text-lg"></span>
+                </div>
                 
-                <div id="bridge-segment" class="h-4 bg-gray-400 border-2 border-gray-600 rounded w-[0%] transition-all duration-1000 ease-out absolute bottom-3"></div>
+                <div id="bridge-plank" class="w-[90%] h-4 bg-gray-300 mt-20 opacity-50 rounded transition-all duration-500"></div>
+                
+                <div class="w-full h-4 bg-blue-400 animate-pulse mt-auto"></div>
             </div>
 
-            <div class="absolute bottom-0 left-[20%] right-[20%] h-4 bg-blue-500 opacity-50 animate-pulse"></div>
+            <div class="w-1/4 h-32 bg-stone-400 border-t-8 border-stone-600 rounded-t-lg relative z-10">
+                <div class="absolute -top-8 right-2 text-2xl">🚗</div>
+            </div>
         </div>
 
-        <p class="text-gray-400 text-xs font-bold uppercase mb-3 z-10">Escolha a peça que encaixa:</p>
-
-        <div class="grid grid-cols-2 gap-3 w-full max-w-md z-10" id="blocks-area">
-            </div>
-
-        <div id="bridge-feedback" class="h-10 mt-4 flex items-center justify-center font-bold text-sm text-center z-10"></div>
+        <div id="options-area" class="grid grid-cols-3 gap-4 w-full"></div>
         
-        <div id="end-screen" class="hidden absolute inset-0 bg-gray-800/95 flex-col items-center justify-center z-30 text-white">
-            <div class="text-6xl mb-4">👷‍♂️</div>
-            <h3 class="text-2xl font-black mb-2">Obra Concluída!</h3>
-            <button id="btn-restart" class="bg-brand-green text-white font-bold py-3 px-8 rounded-full shadow-lg active:scale-95 transition-all">Novo Projeto</button>
-        </div>
-
+        <div id="bridge-msg" class="mt-4 text-center font-bold h-10"></div>
     </div>
     `;
 
-                    const gapLabel = container.querySelector("#gap-label");
-                    const bridge = container.querySelector("#bridge-segment");
-                    const blocksArea = container.querySelector("#blocks-area");
-                    const feedback = container.querySelector("#bridge-feedback");
-                    const scoreEl = container.querySelector("#bridge-score");
-                    const endScreen = container.querySelector("#end-screen");
-                    const btnRestart = container.querySelector("#btn-restart");
+                    const gapDisplay = container.querySelector('#gap-val');
+                    const bridge = container.querySelector('#bridge-plank');
+                    const optsArea = container.querySelector('#options-area');
+                    const msg = container.querySelector('#bridge-msg');
+
+                    // Função interna para reiniciar (CORREÇÃO AQUI)
+                    const restartGame = () => {
+                        currentLevel = 0;
+                        loadLevel();
+                    };
 
                     const loadLevel = () => {
-                        if (currentLvl >= levels.length) {
-                            endScreen.classList.remove("hidden");
-                            endScreen.classList.add("flex");
+                        // Limpar estados visuais
+                        msg.innerHTML = "";
+                        bridge.className = "w-[90%] h-4 bg-gray-300 mt-20 opacity-50 rounded transition-all duration-500";
+
+                        if (currentLevel >= levels.length) {
+                            // Tela de Vitória
+                            gapDisplay.innerText = "---";
+                            optsArea.innerHTML = "";
+
+                            // Aqui criamos o botão dinamicamente e ligamos à função restartGame
+                            msg.innerHTML = `
+                <div class="flex flex-col items-center animate-pop-in">
+                    <span class="text-brand-green text-xl mb-2">Obra Concluída! 👷‍♂️</span>
+                    <button id="btn-restart-bridge" class="bg-brand-blue text-white font-bold py-2 px-6 rounded-full shadow-lg hover:bg-blue-600 transition-all">
+                        Jogar Novamente
+                    </button>
+                </div>
+            `;
+                            // Bind do clique
+                            setTimeout(() => {
+                                const btn = container.querySelector('#btn-restart-bridge');
+                                if (btn) btn.onclick = restartGame;
+                            }, 0);
                             return;
                         }
 
-                        const lvl = levels[currentLvl];
-                        gapLabel.innerText = `Vão: ${lvl.gapVal} ${lvl.gapUnit}`;
-                        bridge.style.width = "0%";
-                        bridge.className =
-                            "h-4 bg-gray-400 border-2 border-gray-600 rounded w-[0%] transition-all duration-1000 ease-out absolute bottom-3";
-                        feedback.innerText = "";
+                        const lvl = levels[currentLevel];
+                        gapDisplay.innerText = `${lvl.gap} ${lvl.unit}`;
 
-                        // Prepara opções
-                        let opts = [
-                            { val: lvl.correctVal, unit: lvl.correctUnit, correct: true },
-                            ...lvl.wrong.map((w) => ({
-                                val: w.v,
-                                unit: w.u,
-                                correct: false,
-                            })),
-                        ];
-                        opts.sort(() => Math.random() - 0.5);
-
-                        blocksArea.innerHTML = "";
-                        opts.forEach((opt) => {
-                            const btn = document.createElement("button");
-                            btn.className =
-                                "bg-gray-700 border-b-4 border-gray-600 text-white font-mono font-bold text-lg py-3 rounded-xl hover:bg-gray-600 active:border-b-0 active:translate-y-1 transition-all shadow-md";
-                            btn.innerText = `${opt.val} ${opt.unit}`;
-                            btn.onclick = () => check(opt, btn);
-                            blocksArea.appendChild(btn);
+                        optsArea.innerHTML = '';
+                        lvl.opts.forEach((opt, idx) => {
+                            const btn = document.createElement('button');
+                            btn.className = "bg-white border-2 border-gray-300 text-gray-600 font-bold py-3 rounded-xl hover:bg-orange-50 hover:border-brand-orange transition-all active:scale-95";
+                            btn.innerText = opt;
+                            btn.onclick = () => check(idx, btn);
+                            optsArea.appendChild(btn);
                         });
                     };
 
-                    const check = (opt, btn) => {
-                        // Trava botões
-                        Array.from(blocksArea.children).forEach(
-                            (b) => (b.disabled = true)
-                        );
+                    const check = (idx, btn) => {
+                        const lvl = levels[currentLevel];
 
-                        if (opt.correct) {
-                            score += 100;
-                            scoreEl.innerText = score;
+                        // Bloqueia cliques
+                        Array.from(optsArea.children).forEach(b => b.disabled = true);
 
-                            // Animação Ponte Construindo
-                            bridge.style.width = "100%";
-                            bridge.classList.remove("bg-gray-400", "border-gray-600");
-                            bridge.classList.add("bg-brand-green", "border-green-800");
+                        if (idx === lvl.ans) {
+                            // Acerto
+                            btn.classList.replace('border-gray-300', 'border-green-500');
+                            btn.classList.add('bg-green-100', 'text-green-700');
 
-                            feedback.innerHTML = `<span class="text-green-400">Encaixe Perfeito! O trânsito foi liberado.</span>`;
+                            bridge.classList.remove('bg-gray-300', 'opacity-50');
+                            bridge.classList.add('bg-brand-orange', 'opacity-100', 'scale-x-110'); // Ponte se firma
 
-                            btn.classList.remove("bg-gray-700", "border-gray-600");
-                            btn.classList.add("bg-green-600", "border-green-800");
+                            msg.innerHTML = "<span class='text-brand-green'>A peça encaixou! O carro passou. 🚗💨</span>";
 
                             setTimeout(() => {
-                                currentLvl++;
+                                currentLevel++;
                                 loadLevel();
                             }, 1500);
                         } else {
-                            // Erro: Ponte cai ou fica curta
-                            const isShort = opt.val < levels[currentLvl].correctVal; // Simplificação visual, assumindo conversão mental
-                            // Como as unidades são diferentes, difícil saber visualmente se é curto ou longo sem converter.
-                            // Vamos fazer uma animação genérica de falha (ponte quebra).
+                            // Erro
+                            btn.classList.replace('border-gray-300', 'border-red-500');
+                            btn.classList.add('bg-red-100', 'text-red-700');
 
-                            bridge.style.width = "60%"; // Tenta construir
-                            setTimeout(() => {
-                                bridge.classList.add(
-                                    "rotate-12",
-                                    "translate-y-4",
-                                    "bg-red-500"
-                                ); // Quebra
-                                feedback.innerHTML = `<span class="text-red-400">A ponte colapsou! Medida errada.</span>`;
-                            }, 500);
+                            bridge.classList.add('rotate-12', 'translate-y-4', 'bg-red-400'); // Ponte cai
 
-                            btn.classList.remove("bg-gray-700", "border-gray-600");
-                            btn.classList.add(
-                                "bg-red-600",
-                                "border-red-800",
-                                "animate-shake"
-                            );
+                            msg.innerHTML = "<span class='text-brand-red'>A peça é do tamanho errado! A ponte caiu. 💥</span>";
 
                             setTimeout(() => {
-                                // Reinicia o nível (permite tentar de novo)
-                                bridge.style.width = "0%";
-                                bridge.classList.remove(
-                                    "rotate-12",
-                                    "translate-y-4",
-                                    "bg-red-500"
-                                );
-                                bridge.className =
-                                    "h-4 bg-gray-400 border-2 border-gray-600 rounded w-[0%] transition-all duration-1000 ease-out absolute bottom-3";
-
-                                // Destrava botões errados (exceto o clicado se quiser hard mode, mas vamos destravar tudo)
-                                Array.from(blocksArea.children).forEach((b) => {
-                                    b.disabled = false;
-                                    if (b === btn) b.classList.add("opacity-50"); // Desabilita o errado visualmente
-                                });
+                                loadLevel(); // Reinicia nível
                             }, 1500);
                         }
-                    };
-
-                    btnRestart.onclick = () => {
-                        currentLvl = 0;
-                        score = 0;
-                        scoreEl.innerText = 0;
-                        endScreen.classList.add("hidden");
-                        endScreen.classList.remove("flex");
-                        loadLevel();
                     };
 
                     loadLevel();
@@ -57282,6 +57368,164 @@ ${[1, 2, 3, 4, 5, 6, 7, 8, 9]
                     btn.onclick = renderNext;
                     list.innerHTML = `<div class="p-4 text-center text-gray-400 font-bold italic">Clique em Iniciar</div>`;
                 },
+
+                // leaderboard
+
+                interactive_leaderboard(container) {
+                    // Estrutura inicial do Widget
+                    container.innerHTML = `
+    <div class="bg-white border-2 border-brand-gray rounded-xl p-4 flex flex-col w-full shadow-sm font-sans">
+        
+        <div class="flex items-center justify-between mb-4 border-b pb-2">
+            <h3 class="text-brand-yellow font-black uppercase text-xs tracking-widest"><i class="fas fa-trophy"></i> Rankings</h3>
+            
+            <div class="flex bg-gray-100 p-1 rounded-lg">
+                <button class="rank-tab px-3 py-1 text-[10px] font-bold uppercase rounded bg-white shadow text-brand-blue" data-mode="geral">Geral</button>
+                <button class="rank-tab px-3 py-1 text-[10px] font-bold uppercase rounded text-gray-400 hover:bg-white" data-mode="serie">Série</button>
+                <button class="rank-tab px-3 py-1 text-[10px] font-bold uppercase rounded text-gray-400 hover:bg-white" data-mode="turma">Turma</button>
+            </div>
+        </div>
+
+        <div id="filter-controls" class="hidden flex gap-2 mb-4 animate-fade-in">
+            <select id="filter-grade" class="flex-1 bg-gray-50 border border-gray-200 text-xs font-bold rounded p-2 outline-none">
+                <option value="6">6º Ano</option>
+                <option value="7">7º Ano</option>
+                <option value="8">8º Ano</option>
+                <option value="9">9º Ano</option>
+                <option value="1EM">1º EM</option>
+                <option value="2EM">2º EM</option>
+                <option value="3EM">3º EM</option>
+            </select>
+            <select id="filter-class" class="hidden flex-1 bg-gray-50 border border-gray-200 text-xs font-bold rounded p-2 outline-none">
+                <option value="A">Turma A</option>
+                <option value="B">Turma B</option>
+                <option value="C">Turma C</option>
+                <option value="D">Turma D</option>
+                <option value="TREINEIRO">Treineiro</option>
+            </select>
+            <button id="btn-refresh-rank" class="bg-brand-blue text-white px-3 rounded text-xs"><i class="fas fa-search"></i></button>
+        </div>
+
+        <div id="rank-list" class="flex flex-col gap-2 min-h-[150px]">
+            <div class="text-center text-gray-400 text-xs py-8">Carregando dados...</div>
+        </div>
+
+    </div>
+    `;
+
+                    const tabs = container.querySelectorAll('.rank-tab');
+                    const controls = container.getElementById('filter-controls');
+                    const selGrade = container.getElementById('filter-grade');
+                    const selClass = container.getElementById('filter-class');
+                    const btnRefresh = container.getElementById('btn-refresh-rank');
+                    const list = container.getElementById('rank-list');
+
+                    let currentMode = 'geral'; // geral, serie, turma
+
+                    // Função para buscar dados
+                    const fetchRanking = async () => {
+                        list.innerHTML = `<div class="text-center text-gray-400 text-xs py-8"><i class="fas fa-circle-notch animate-spin"></i> Buscando campeões...</div>`;
+
+                        const db = window.firebase.firestore();
+                        let query = db.collection("users").orderBy("xp", "desc").limit(5);
+
+                        // Aplicar Filtros
+                        if (currentMode === 'serie' || currentMode === 'turma') {
+                            const grade = selGrade.value;
+                            query = db.collection("users").where("grade", "==", grade);
+
+                            if (currentMode === 'turma') {
+                                const turma = selClass.value;
+                                query = query.where("schoolClass", "==", turma);
+                            }
+
+                            // Nota Importante: Firestore exige índice composto para where() + orderBy()
+                            // Se der erro no console, clique no link fornecido pelo Firebase para criar o índice.
+                            query = query.orderBy("xp", "desc").limit(5);
+                        }
+
+                        try {
+                            const snapshot = await query.get();
+
+                            if (snapshot.empty) {
+                                list.innerHTML = `<div class="text-center text-gray-400 text-xs py-4">Ninguém pontuou aqui ainda!</div>`;
+                                return;
+                            }
+
+                            let html = '';
+                            let pos = 1;
+                            snapshot.forEach(doc => {
+                                const u = doc.data();
+                                const medals = ["🥇", "🥈", "🥉"];
+                                const badge = pos <= 3 ? medals[pos - 1] : `<span class="font-bold text-gray-500">#${pos}</span>`;
+
+                                // Estilo diferente para o usuário atual
+                                const isMe = app.auth.currentUser && app.auth.currentUser.uid === doc.id;
+                                const bgClass = isMe ? "bg-blue-50 border-brand-blue" : "bg-gray-50 border-gray-100";
+
+                                html += `
+                <div class="flex items-center justify-between p-2 rounded-lg border ${bgClass} animate-pop-in" style="animation-delay: ${pos * 0.1}s">
+                    <div class="flex items-center gap-3">
+                        <div class="text-lg w-6 text-center">${badge}</div>
+                        <div class="flex flex-col">
+                            <span class="text-xs font-bold text-gray-700 truncate max-w-[120px]">${u.displayName || "Anônimo"}</span>
+                            <span class="text-[10px] text-gray-400">${u.grade || "?"}º Ano ${u.schoolClass || ""}</span>
+                        </div>
+                    </div>
+                    <div class="font-black text-brand-orange text-sm">${u.xp} XP</div>
+                </div>
+                `;
+                                pos++;
+                            });
+                            list.innerHTML = html;
+
+                        } catch (error) {
+                            console.error("Erro ranking:", error);
+                            list.innerHTML = `
+                <div class="text-center text-red-400 text-xs py-2">
+                    Precisa criar índice no Firebase.<br>
+                    (Verifique o Console do navegador)
+                </div>
+            `;
+                        }
+                    };
+
+                    // Lógica das Abas
+                    tabs.forEach(tab => {
+                        tab.onclick = () => {
+                            // Visual
+                            tabs.forEach(t => {
+                                t.className = "rank-tab px-3 py-1 text-[10px] font-bold uppercase rounded text-gray-400 hover:bg-white";
+                            });
+                            tab.className = "rank-tab px-3 py-1 text-[10px] font-bold uppercase rounded bg-white shadow text-brand-blue";
+
+                            currentMode = tab.dataset.mode;
+
+                            // Mostrar/Esconder controles
+                            if (currentMode === 'geral') {
+                                controls.classList.add('hidden');
+                            } else {
+                                controls.classList.remove('hidden');
+                                if (currentMode === 'serie') {
+                                    selClass.classList.add('hidden');
+                                } else {
+                                    selClass.classList.remove('hidden');
+                                }
+                            }
+
+                            fetchRanking();
+                        };
+                    });
+
+                    btnRefresh.onclick = fetchRanking;
+
+                    // Carregar inicial
+                    fetchRanking();
+                }
+
+
+
+
             },
         };
 
