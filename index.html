@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -10,13 +9,12 @@
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦉</text></svg>">
 
     <script src="https://cdn.tailwindcss.com"></script>
-
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap"
-        rel="stylesheet" />
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -190,35 +188,53 @@
     <main id="main-container"
         class="flex-1 overflow-y-auto no-scrollbar p-4 w-full max-w-5xl mx-auto relative transition-colors"></main>
 
-    <audio id="snd-success" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3"></audio>
-    <audio id="snd-error" src="https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-game-over-470.mp3"></audio>
-    <audio id="snd-finish" src="https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3"></audio>
-
     <script>
         // sistema de audio
         const AudioSynth = {
             ctx: null,
+            
             init() {
                 if (!this.ctx) {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                 }
+                // Retoma o contexto se estiver suspenso (comum em navegadores modernos)
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
             },
+
             playTone(freq, type, duration, delay = 0) {
-                this.init(); // Garante que o contexto existe
+                this.init(); // Garante que o áudio está pronto
+                
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
+                
                 osc.type = type;
                 osc.frequency.value = freq;
+                
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
+                
                 osc.start(this.ctx.currentTime + delay);
+                
+                // Fade out para evitar "estouros" no som
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime + delay);
                 gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + delay + duration);
+                
                 osc.stop(this.ctx.currentTime + delay + duration);
             },
+
             playSuccess() {
                 this.playTone(600, 'sine', 0.1);
                 this.playTone(800, 'sine', 0.2, 0.1);
             },
+
+            // --- AQUI ESTÁ A FUNÇÃO QUE FALTAVA ---
+            playError() {
+                // Som grave e "áspero" (dente de serra) para indicar erro
+                this.playTone(150, 'sawtooth', 0.3);
+            },
+
             playFinish() {
                 this.playTone(523.25, 'sine', 0.6, 0);   // Dó
                 this.playTone(659.25, 'sine', 0.6, 0.1); // Mi
@@ -3356,6 +3372,10 @@
 
             // Darkmode Default
             darkMode: false,
+
+            // Por Default não é professor
+            isTeacher: false,
+
             // Estado do Usuário (Sincronizado com a Nuvem)
             user: {
                 uid: null,
@@ -3456,8 +3476,7 @@
 
 
 
-            darkMode: false,
-            isTeacher: false,
+
 
             init() {
                 try {
@@ -3696,12 +3715,13 @@
             },
 
             updateHeader() {
-                const xpEl = document.querySelector(".fa-gem")?.nextElementSibling;
-                const fireEl = document.querySelector(".fa-fire")?.nextElementSibling;
+                // Pegamos os elementos pelos IDs que criamos anteriormente
+                const xpEl = document.getElementById("header-xp");
+                const fireEl = document.getElementById("header-lessons");
                 
                 if (this.user) {
+                    // Proteção: || 0 para números e || [] para arrays
                     if (xpEl) xpEl.innerText = this.user.xp || 0;
-                    // CORREÇÃO: Usa ( ... || []).length para evitar erro se for undefined
                     if (fireEl) fireEl.innerText = (this.user.completedLessons || []).length;
                 }
             },
@@ -3801,7 +3821,7 @@
             // --- TELA: HOME (DASHBOARD) ---
             renderHome(container) {
                 const u = this.user;
-                
+                const licoes = u.completedLessons.length
                 // Proteção: Se u.name for nulo, usa "Visitante"
                 const safeName = u.name ? u.name : "Visitante";
                 const firstName = safeName.split(" ")[0];
@@ -3817,47 +3837,53 @@
                     : "";
 
                 container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center pt-10 animate-fade-in w-full">
-                        <div class="flex flex-col items-center mb-12">
-                            <div class="w-36 h-36 rounded-full bg-brand-green border-4 border-white shadow-xl mb-6 flex items-center justify-center relative overflow-hidden">
+                    <div class="flex flex-col items-center pt-6 animate-fade-in w-full max-w-md mx-auto">
+                        <div class="bg-white dark:bg-brand-darkCard border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 w-full shadow-card mb-8 flex items-center gap-6">
+                            <div class="w-20 h-20 rounded-full bg-brand-green border-4 border-white dark:border-gray-600 shadow-md flex items-center justify-center overflow-hidden shrink-0">
                                 ${avatar}
                             </div>
                             
-                            <h2 class="text-3xl font-extrabold text-gray-700 dark:text-white text-center">Olá, ${firstName}!</h2>
-                            
+
+<div>
+                                <h2 class="text-2xl font-extrabold text-gray-700 dark:text-white">Olá, ${firstName}!</h2>
+                                <p class="text-brand-blue font-bold text-sm uppercase tracking-wide mb-1">${u.grade || "Série não definida"}</p>
+                                <div class="flex gap-4 text-xs font-bold text-gray-400">
+                                    <span><i class="fas fa-check text-brand-green"></i> ${licoes} Lições</span>
+                                    <span><i class="fas fa-star text-brand-yellow"></i> ${u.xp} XP</span>
+                                </div>
+                            </div>
+
                             <div class="flex items-center mt-2">
                                 <p class="text-gray-400 font-bold text-lg">Nível Iniciante • ${u.xp} XP</p>
                                 ${guestBadge}
                             </div>
                         </div>
 
-                        <div class="w-full max-w-md space-y-6 px-4">
-                            <div onclick="app.navigate('levels')" class="group cursor-pointer bg-white dark:bg-brand-darkCard border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 flex items-center gap-6 hover:border-brand-purple hover:bg-purple-50 dark:hover:bg-gray-800 transition-all shadow-card active:translate-y-1 active:shadow-none">
-                                <div class="w-20 h-20 rounded-2xl bg-brand-purple flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform text-white text-4xl shrink-0">
+
+                        
+                        <div class="w-full space-y-4">
+
+
+                            <div onclick="app.navigate('levels')" class="cursor-pointer bg-white dark:bg-brand-darkCard border-2 border-gray-200 dark:border-gray-700 rounded-2xl p-4 flex items-center gap-4 hover:border-brand-purple hover:bg-purple-50 dark:hover:bg-gray-800 transition-all shadow-sm active:scale-95 group">
+                                <div class="w-16 h-16 rounded-xl bg-brand-purple flex items-center justify-center text-white text-3xl shadow-btn group-hover:rotate-6 transition-transform">
                                     <i class="fas fa-book-open"></i>
                                 </div>
-                                <div>
-                                    <h3 class="text-2xl font-extrabold text-gray-700 dark:text-gray-200 group-hover:text-brand-purple transition-colors">Trilha de Teoria</h3>
-                                    <p class="text-gray-400 font-bold text-sm">Aulas passo a passo</p>
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-extrabold text-gray-700 dark:text-gray-200">Trilha de Teoria</h3>
+                                    <p class="text-gray-400 text-sm font-bold">Aulas do Fundamental ao Superior</p>
                                 </div>
+                                <i class="fas fa-chevron-right text-gray-300"></i>
                             </div>
                             
-                            <div onclick="alert('Em breve!')" class="group cursor-pointer bg-white dark:bg-brand-darkCard border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 flex items-center gap-6 opacity-60 hover:opacity-100 transition-all shadow-card active:translate-y-1 active:shadow-none">
-                                <div class="w-20 h-20 rounded-2xl bg-brand-blue flex items-center justify-center shadow-inner text-white text-4xl shrink-0">
+                            <div onclick="app.navigate('arena')" class="cursor-pointer bg-white dark:bg-brand-darkCard border-2 border-gray-200 dark:border-gray-700 rounded-2xl p-4 flex items-center gap-4 hover:border-brand-red hover:bg-red-50 dark:hover:bg-gray-800 transition-all shadow-sm active:scale-95 group">
+                                <div class="w-16 h-16 rounded-xl bg-brand-red flex items-center justify-center text-white text-3xl shadow-btn group-hover:-rotate-6 transition-transform">
                                     <i class="fas fa-dumbbell"></i>
                                 </div>
-                                <div>
-                                    <h3 class="text-2xl font-extrabold text-gray-700 dark:text-gray-200">Arena de Prática</h3>
-                                    <p class="text-gray-400 font-bold text-sm">Desafios e Quiz</p>
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-extrabold text-gray-700 dark:text-gray-200">Arena de Desafios</h3>
+                                    <p class="text-gray-400 text-sm font-bold">Ganhe XP resolvendo exercícios</p>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div class="w-full max-w-md px-4 mt-6">
-                            <div onclick="app.navigate('settings')" class="group cursor-pointer border-2 border-gray-100 dark:border-gray-700 rounded-3xl p-6 flex gap-6 hover:border-brand-purple hover:bg-purple-50 dark:hover:bg-gray-800 transition-all active:translate-y-1">
-                                <div>
-                                    <h3 class="text-xl font-extrabold text-gray-400 group-hover:text-brand-purple transition-colors">Configurar Perfil / Turma</h3>
-                                </div>
+                                <i class="fas fa-chevron-right text-gray-300"></i>
                             </div>
 
                             <button onclick="app.logout()" class="w-full mt-12 text-gray-400 font-bold text-xs uppercase hover:text-brand-red transition-colors border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl mb-10">
@@ -3980,10 +4006,10 @@
                     <button onclick="app.navigate('units', '${level}')" 
                         class="relative h-36 rounded-3xl border-b-[6px] ${theme.borderDark} ${theme.main} hover:brightness-110 active:border-b-0 active:translate-y-1 transition-all shadow-lg group flex flex-col items-center justify-center gap-2">
                         
-                        <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white font-black text-xl shadow-inner group-hover:scale-110 transition-transform">
-                            ${shortName}
+                        <div class="w-20 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white font-black text-xl shadow-inner group-hover:scale-110 transition-transform" style="flex-direction:column">
+                            ${shortName} <div style="height: 10px"></div> <span class="text-white font-extrabold text-sm uppercase tracking-wide text-center px-2">${level.replace(shortName, "").trim()}</span>
                         </div>
-                        <span class="text-white font-extrabold text-sm uppercase tracking-wide text-center px-2">${level.replace(shortName, "").trim()}</span>
+                        
                     </button>
                 `;
                         }
@@ -4159,7 +4185,7 @@
 
                     <button ${action} class="w-20 h-20 rounded-full border-b-[6px] flex items-center justify-center transition-all active:scale-90 active:border-b-0 relative z-30 ${btnClass}">
                         ${icon}
-                        <div class="absolute top-2 left-1/2 -translate-x-1/2 w-2/3 h-1/3 bg-white opacity-20 rounded-full"></div>
+                        
                     </button>
 
                 </div>
@@ -4617,57 +4643,85 @@
             },
 
             checkArenaAnswer(btn, selected, correct) {
+                // Desabilita botões para evitar clique duplo
                 const buttons = document.querySelectorAll("#options-grid button");
                 buttons.forEach(b => b.disabled = true);
 
                 const feedback = document.getElementById("arena-feedback");
                 feedback.classList.remove("hidden");
 
-                // Elementos do placar para atualizar na hora
+                // Elementos do placar
                 const elCorrect = document.getElementById("score-correct");
                 const elWrong = document.getElementById("score-wrong");
+                
+                // Garante que o objeto de estatísticas existe
+                if(!this.arenaState.stats) this.arenaState.stats = { correct: 0, wrong: 0 };
 
                 if (selected === correct) {
-                    // LÓGICA DE ACERTO
-                    this.arenaState.stats.correct++; // Atualiza estado
-                    elCorrect.innerText = this.arenaState.stats.correct; // Atualiza tela
+                    // --- LÓGICA DE ACERTO ---
+                    
+                    // 1. Toca o som usando o sistema novo (AudioSynth)
+                    if (typeof AudioSynth !== 'undefined') {
+                        AudioSynth.playSuccess();
+                    }
 
-                    // Animaçãozinha no número
-                    elCorrect.parentElement.classList.add("scale-110", "transition-transform");
-                    setTimeout(() => elCorrect.parentElement.classList.remove("scale-110"), 200);
+                    // 2. Atualiza Placar
+                    this.arenaState.stats.correct++;
+                    if(elCorrect) {
+                        elCorrect.innerText = this.arenaState.stats.correct;
+                        elCorrect.parentElement.classList.add("scale-110", "transition-transform");
+                        setTimeout(() => elCorrect.parentElement.classList.remove("scale-110"), 200);
+                    }
 
-                    btn.classList.add("correct-anim");
-                    document.getElementById("snd-success").play();
-
-                    feedback.className = "mt-6 p-6 rounded-2xl text-center font-black text-green-700 bg-green-100 border-2 border-green-400 mb-10 shadow-lg";
+                    // 3. Visual do Botão
+                    btn.classList.remove('bg-white', 'dark:bg-brand-darkCard');
+                    btn.classList.add("bg-green-100", "border-green-400", "text-green-700", "dark:bg-green-900", "dark:border-green-700", "dark:text-green-300");
+                    
+                    // 4. Mostra Feedback e Botão Continuar
+                    feedback.className = "mt-8 p-6 rounded-2xl text-center font-black text-green-700 bg-green-100 border-2 border-green-400 dark:bg-green-900/50 dark:border-green-800 dark:text-green-300 mb-10 shadow-lg animate-pop-in";
                     feedback.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2"><i class="fas fa-check-circle text-2xl"></i> <span>Boa!</span></div>
-                <button onclick="app.finishArenaRound(true)" class="bg-brand-green text-white px-6 py-3 rounded-xl border-b-4 border-brand-greenDark active:border-b-0 active:translate-y-1 uppercase text-sm font-bold shadow-md">Próxima</button>
-            </div>
-        `;
+                        <div class="flex items-center justify-between flex-wrap gap-4">
+                            <div class="flex items-center gap-2"><i class="fas fa-check-circle text-2xl"></i> <span>Excelente!</span></div>
+                            <button onclick="app.finishArenaRound(true)" class="bg-brand-green text-white px-8 py-3 rounded-xl border-b-4 border-brand-greenDark active:border-b-0 active:translate-y-1 uppercase text-sm font-bold shadow-md hover:brightness-110 transition-all">
+                                Continuar <i class="fas fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
+                    `;
                 } else {
-                    // LÓGICA DE ERRO
-                    this.arenaState.stats.wrong++; // Atualiza estado
-                    elWrong.innerText = this.arenaState.stats.wrong; // Atualiza tela
+                    // --- LÓGICA DE ERRO ---
 
-                    // Animaçãozinha no número
-                    elWrong.parentElement.classList.add("scale-110", "transition-transform");
-                    setTimeout(() => elWrong.parentElement.classList.remove("scale-110"), 200);
+                    // 1. Toca o som de erro
+                    if (typeof AudioSynth !== 'undefined') {
+                        AudioSynth.playError(); 
+                    }
 
-                    btn.classList.add("wrong-anim");
-                    document.getElementById("snd-error").play();
+                    // 2. Atualiza Placar
+                    this.arenaState.stats.wrong++;
+                    if(elWrong) {
+                        elWrong.innerText = this.arenaState.stats.wrong;
+                        elWrong.parentElement.classList.add("scale-110", "transition-transform");
+                        setTimeout(() => elWrong.parentElement.classList.remove("scale-110"), 200);
+                    }
 
-                    // Mostra qual era a certa (opcional, mas bom pra tabuada)
-                    buttons[correct].classList.add("bg-green-100", "border-green-400", "text-green-700");
+                    // 3. Visual do Botão Errado
+                    btn.classList.remove('bg-white', 'dark:bg-brand-darkCard');
+                    btn.classList.add("bg-red-100", "border-red-400", "text-red-700", "dark:bg-red-900", "dark:border-red-700", "dark:text-red-300");
 
-                    feedback.className = "mt-6 p-6 rounded-2xl text-center font-black text-red-700 bg-red-100 border-2 border-red-400 mb-10 shadow-lg";
+                    // 4. Mostra qual era o Certo
+                    if(buttons[correct]) {
+                         buttons[correct].classList.add("bg-green-100", "border-green-400", "text-green-700", "dark:bg-green-900/50", "dark:text-green-300");
+                    }
+                    
+                    // 5. Mostra Feedback e Botão Continuar
+                    feedback.className = "mt-8 p-6 rounded-2xl text-center font-black text-red-700 bg-red-100 border-2 border-red-400 dark:bg-red-900/50 dark:border-red-800 dark:text-red-300 mb-10 shadow-lg animate-shake";
                     feedback.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2"><i class="fas fa-times-circle text-2xl"></i> <span>Errou!</span></div>
-                <button onclick="app.finishArenaRound(false)" class="bg-brand-red text-white px-6 py-3 rounded-xl border-b-4 border-brand-redDark active:border-b-0 active:translate-y-1 uppercase text-sm font-bold shadow-md">Próxima</button>
-            </div>
-        `;
+                        <div class="flex items-center justify-between flex-wrap gap-4">
+                            <div class="flex items-center gap-2"><i class="fas fa-times-circle text-2xl"></i> <span>Ops! Errou.</span></div>
+                            <button onclick="app.finishArenaRound(false)" class="bg-brand-red text-white px-8 py-3 rounded-xl border-b-4 border-brand-redDark active:border-b-0 active:translate-y-1 uppercase text-sm font-bold shadow-md hover:brightness-110 transition-all">
+                                Continuar <i class="fas fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
+                    `;
                 }
             },
 
